@@ -84,6 +84,22 @@ class GBrain:
 
     # ---- setup ---------------------------------------------------------------
 
+    def _in_git_worktree(self) -> bool:
+        """True if the brain folder is inside a git repository (for example the project clone)."""
+        probe = self.home
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        try:
+            out = subprocess.run(
+                ["git", "-C", str(probe), "rev-parse", "--is-inside-work-tree"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except OSError:  # git is not installed
+            return False
+        return out.stdout.strip() == "true"
+
     def exists(self) -> bool:
         """True if a brain has been created in this home directory."""
         return (self.home / ".gbrain" / "config.json").exists()
@@ -98,14 +114,17 @@ class GBrain:
         if self.exists():
             return False
         self.home.mkdir(parents=True, exist_ok=True)
+        # gbrain refuses to put its content folder inside someone else's git repository
+        # (such as this project's clone) unless it may create a repository of its own there.
+        git = ["--git"] if self._in_git_worktree() else []
         if embedding:
             model, dims = embedding
             self.run(
-                "init", "--pglite", "--non-interactive",
+                "init", "--pglite", "--non-interactive", *git,
                 "--embedding-model", model, "--embedding-dimensions", str(dims),
             )  # fmt: skip
         else:
-            self.run("init", "--pglite", "--no-embedding", "--non-interactive")
+            self.run("init", "--pglite", "--no-embedding", "--non-interactive", *git)
         if not self.exists():
             raise GBrainError(f"gbrain init did not create a brain in {self.home}")
         return True
