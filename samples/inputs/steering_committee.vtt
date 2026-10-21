@@ -1,0 +1,19 @@
+WEBVTT
+
+00:00:05.000 --> 00:00:12.000
+<v Priya Raman>Let's start. The goal today is to agree the go-live plan for Release 1.
+
+00:00:12.500 --> 00:00:24.000
+<v Rafael Souza>The OrderHub upgrade is still the critical path. The vendor now commits to the fourteenth of February.
+
+00:00:24.500 --> 00:00:33.000
+<v Daniel Okafor>If OrderHub lands in February we can still hit the third of May for Release 1.
+
+00:00:33.500 --> 00:00:45.000
+<v Hannah Weber>Security needs two weeks for the penetration test before go-live, so the test window must start by mid-April.
+
+00:00:45.500 --> 00:00:55.000
+<v Priya Raman>Agreed. Decision: Release 1 stays on the third of May. Rafael, please send weekly OrderHub status updates.
+
+00:00:55.500 --> 00:01:04.000
+<v Rafael Souza>Will do. I'll also set up the integration sandbox this month.

@@ -1,0 +1,13 @@
+Lighthouse retro notes, Release 0 prototype
+
+The prototype ran for three weeks with 120 invited customers. Order tracking was the most used feature by a
+wide margin: 86 of the 120 customers checked an order at least once, and 31 of them used carrier tracking
+more than three times. Returns were tried by 22 customers; four abandoned the flow at the label step because
+they had no printer at home, which supports the QR code idea in the mobile returns PRD.
+
+The virtual assistant answered 64 percent of questions without a hand-off. The most common failure was
+questions about delivery slots, which the knowledge base does not cover yet. Mei Lin will add twelve
+articles on delivery slots before the Release 3 content freeze.
+
+Performance was acceptable on desktop but slow on older Android phones; page loads averaged 3.4 seconds
+against the two-second target. Rafael suspects the order list query and will profile it next sprint.

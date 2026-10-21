@@ -1,0 +1,366 @@
+# docingest vocabulary: page types, ID prefixes, and relationship verbs.
+#
+# This file is the single source of truth. The gbrain schema pack
+# (doc-pack) is generated from it, the rule-based extractor uses it to map
+# table rows and columns, and the optional AI extractor is constrained to it.
+#
+# Page type fields:
+#   dir          slug directory; also the type's path prefix in gbrain
+#   primitive    gbrain primitive: entity | media | temporal | annotation | concept
+#   scope        document: one page per document (slug <dir>/<doc-key>/<item-id>)
+#                global:   one page shared by every document (slug <dir>/<name>)
+#   builtin      true for types gbrain-base-v2 already declares (not redeclared)
+#   id_prefixes  table IDs like FR-001 map to this type by prefix
+#   keywords     section-heading words that identify the type when a prefix is unknown
+#   title_columns  preferred table columns for the page title, in order
+#   description  shown to the AI extractor
+
+pack:
+  name: doc-pack
+  version: 1.0.0
+  extends: gbrain-base-v2
+  description: Business documents (BRD, PRD, SOW, email, transcripts, chat) with entity and traceability graph
+
+types:
+  source_document:
+    dir: docs/documents
+    primitive: media
+    scope: document
+    extractable: true
+    description: One ingested input file (BRD, PRD, SOW, email, transcript, chat, spreadsheet, ...)
+  document_section:
+    dir: docs/sections
+    primitive: media
+    scope: document
+    description: One heading-delimited section (or segment) of a source document, holding its full text
+
+  person:
+    dir: people
+    primitive: entity
+    scope: global
+    builtin: true
+    id_prefixes: [SH, STK, PPL]
+    keywords: [stakeholder, stakeholders, team, contacts, roles and responsibilities, raci]
+    title_columns: [name, full name, stakeholder, person]
+    description: A named individual (stakeholder, author, approver, email participant, speaker)
+  organization:
+    gbrain_type: company
+    dir: companies
+    primitive: entity
+    scope: global
+    builtin: true
+    id_prefixes: [ORG, VEN, PTY]
+    keywords: [parties, vendors, organizations, suppliers]
+    title_columns: [organization, company, name, party]
+    description: A company or organization (client, vendor, partner)
+  system:
+    dir: docs/systems
+    primitive: entity
+    scope: global
+    id_prefixes: [SYS, APP, INT]
+    keywords: [systems, integrations, applications, interfaces]
+    title_columns: [system, application, name]
+    description: A software system, application, platform, or external service
+  glossary_term:
+    dir: docs/glossary
+    primitive: concept
+    scope: global
+    id_prefixes: [GL, TERM]
+    keywords: [glossary, definitions, terms, acronyms]
+    title_columns: [term, acronym, name]
+    description: A defined term or acronym
+
+  persona:
+    dir: docs/personas
+    primitive: entity
+    scope: document
+    id_prefixes: [PE, PER]
+    keywords: [personas, actors, user roles, user types]
+    title_columns: [persona, actor, role, name]
+    description: A user persona or actor type
+  business_objective:
+    dir: docs/objectives
+    primitive: concept
+    scope: document
+    id_prefixes: [BO, OBJ, GOAL]
+    keywords: [objectives, goals, business goals]
+    title_columns: [objective, goal]
+    description: A business goal or objective with a measurable target
+  scope_item:
+    dir: docs/scope
+    primitive: concept
+    scope: document
+    id_prefixes: [SC, SCOPE]
+    keywords: [scope, in scope, out of scope]
+    title_columns: [item, scope item, description]
+    description: An item explicitly in or out of scope
+  business_requirement:
+    dir: docs/business-requirements
+    primitive: concept
+    scope: document
+    id_prefixes: [BR, BRQ]
+    keywords: [business requirements]
+    title_columns: [requirement, description]
+    description: A business-level need the solution must satisfy
+  functional_requirement:
+    dir: docs/functional-requirements
+    primitive: concept
+    scope: document
+    id_prefixes: [FR, FRQ]
+    keywords: [functional requirements]
+    title_columns: [requirement, description]
+    description: A specific behaviour the system must provide
+  nonfunctional_requirement:
+    dir: docs/nonfunctional-requirements
+    primitive: concept
+    scope: document
+    id_prefixes: [NFR, NF, QR]
+    keywords: [non-functional requirements, nonfunctional requirements, quality attributes]
+    title_columns: [requirement, description]
+    description: A quality attribute (performance, security, availability, ...)
+  requirement:
+    dir: docs/requirements
+    primitive: concept
+    scope: document
+    id_prefixes: [REQ, RQ]
+    keywords: [requirements]
+    title_columns: [requirement, description, title]
+    description: A requirement that is not classified as business, functional, or non-functional
+  use_case:
+    dir: docs/use-cases
+    primitive: concept
+    scope: document
+    id_prefixes: [UC]
+    keywords: [use cases]
+    title_columns: [use case, name, title]
+    description: A use case describing an actor's interaction with the system
+  epic:
+    dir: docs/epics
+    primitive: concept
+    scope: document
+    id_prefixes: [EP, EPIC]
+    keywords: [epics]
+    title_columns: [epic, title, name]
+    description: A large body of product work grouping user stories
+  user_story:
+    dir: docs/user-stories
+    primitive: concept
+    scope: document
+    id_prefixes: [US, STORY]
+    keywords: [user stories, stories]
+    title_columns: [story, user story, title, description]
+    description: A user story ("As a ..., I want ..., so that ...")
+  feature:
+    dir: docs/features
+    primitive: concept
+    scope: document
+    id_prefixes: [FEAT, FT]
+    keywords: [features, feature list]
+    title_columns: [feature, title, name]
+    description: A product feature or capability
+  deliverable:
+    dir: docs/deliverables
+    primitive: concept
+    scope: document
+    id_prefixes: [DEL, DLV]
+    keywords: [deliverables]
+    title_columns: [deliverable, title, description]
+    description: A contracted or planned output to be handed over
+  acceptance_criterion:
+    dir: docs/acceptance-criteria
+    primitive: annotation
+    scope: document
+    id_prefixes: [AC]
+    keywords: [acceptance criteria, acceptance]
+    title_columns: [criterion, criteria, description]
+    description: A condition that must be met for work to be accepted
+  service_level:
+    dir: docs/service-levels
+    primitive: annotation
+    scope: document
+    id_prefixes: [SLA, SL]
+    keywords: [service levels, sla, service level agreement]
+    title_columns: [service level, metric, description]
+    description: A committed service level (response time, uptime, ...)
+  payment_term:
+    dir: docs/payment-terms
+    primitive: annotation
+    scope: document
+    id_prefixes: [PAY, PT]
+    keywords: [payment, payment schedule, fees, commercials, pricing]
+    title_columns: [payment, milestone, description, item]
+    description: A payment, fee, or invoicing term
+  dependency:
+    dir: docs/dependencies
+    primitive: annotation
+    scope: document
+    id_prefixes: [DEP]
+    keywords: [dependencies]
+    title_columns: [dependency, description]
+    description: Something the work depends on that it does not control
+  assumption:
+    dir: docs/assumptions
+    primitive: annotation
+    scope: document
+    id_prefixes: [AS, ASM]
+    keywords: [assumptions]
+    title_columns: [assumption, description]
+    description: Something taken to be true without proof
+  constraint:
+    dir: docs/constraints
+    primitive: annotation
+    scope: document
+    id_prefixes: [CON, CN]
+    keywords: [constraints]
+    title_columns: [constraint, description]
+    description: A fixed limit on budget, schedule, technology, regulation, or resources
+  risk:
+    dir: docs/risks
+    primitive: annotation
+    scope: document
+    id_prefixes: [RK, RISK, RSK]
+    keywords: [risks, risk register]
+    title_columns: [risk, description]
+    description: An uncertain event that could harm objectives
+  issue:
+    dir: docs/issues
+    primitive: annotation
+    scope: document
+    id_prefixes: [ISS, ISSUE, BUG]
+    keywords: [issues, issue log]
+    title_columns: [issue, description, title]
+    description: A current problem that needs resolution
+  decision:
+    dir: docs/decisions
+    primitive: annotation
+    scope: document
+    id_prefixes: [DEC]
+    keywords: [decisions, decision log]
+    title_columns: [decision, description]
+    description: A decision that was made, and by whom
+  action_item:
+    dir: docs/action-items
+    primitive: annotation
+    scope: document
+    id_prefixes: [ACT, AI, TASK]
+    keywords: [action items, actions, next steps, tasks]
+    title_columns: [action, action item, task, description]
+    description: A task assigned to someone, often with a due date
+  open_question:
+    dir: docs/open-questions
+    primitive: annotation
+    scope: document
+    id_prefixes: [OQ, QN]
+    keywords: [open questions, questions, open issues]
+    title_columns: [question, description]
+    description: An unresolved question
+  kpi:
+    dir: docs/kpis
+    primitive: concept
+    scope: document
+    id_prefixes: [KPI, MET]
+    keywords: [success metrics, kpis, metrics, measures of success]
+    title_columns: [kpi, metric, measure, name]
+    description: A metric used to measure success, with baseline and target
+  milestone:
+    dir: docs/milestones
+    primitive: temporal
+    scope: document
+    id_prefixes: [MS, MIL]
+    keywords: [milestones, timeline, schedule, plan]
+    title_columns: [milestone, phase, name, description]
+    description: A dated delivery point or phase
+  budget_item:
+    dir: docs/budget
+    primitive: annotation
+    scope: document
+    id_prefixes: [BUD, COST]
+    keywords: [budget, costs, cost breakdown]
+    title_columns: [category, item, description]
+    description: A budget line or cost item
+  record:
+    dir: docs/records
+    primitive: annotation
+    scope: document
+    description: A row from an ID-keyed table whose ID prefix is not in this vocabulary
+
+# Relationship verbs. The frontmatter field that holds a verb's targets is
+# named after the verb. `target` restricts the target page type (gbrain
+# rejects edges to the wrong type); verbs without it accept any type.
+# `columns` are table header aliases (lowercase) that map to the verb.
+verbs:
+  defined_in:      {inverse: defines, target: source_document, description: Item is defined in this document}
+  section_of:      {inverse: has_section, target: source_document, description: Section belongs to this document}
+  mentions_item:   {inverse: mentioned_in_section, description: Section text mentions this item}
+  appears_in:      {inverse: features, target: source_document, description: Shared entity appears in this document}
+  attachment_of:   {inverse: has_attachment, target: source_document, description: Document was attached to this email}
+
+  authored_by:     {inverse: authored, target: person, columns: [author, authors, prepared by, written by], description: Created by}
+  owned_by:        {inverse: owns, target: person, columns: [owner, owners, accountable, responsible, managed by, business owner, lead], description: Owned by or accountable person}
+  sponsored_by:    {inverse: sponsors, target: person, columns: [sponsor, executive sponsor], description: Sponsored by}
+  assigned_to:     {inverse: assigned, target: person, columns: [assignee, assigned to, assigned, action owner], description: Task is assigned to}
+  requested_by:    {inverse: requested, target: person, columns: [requested by, requester, raised by], description: Requested by}
+  approved:        {inverse: approved_by, target: source_document, temporal: event, description: Person approved or signed off the document}
+  decided_by:      {inverse: decided, target: person, columns: [decided by, decision maker], description: Decision was made by}
+  sent_by:         {inverse: sent, target: person, description: Email sender}
+  sent_to:         {inverse: received, target: person, description: Email recipient}
+  copied_to:       {inverse: copied_on, target: person, description: Email CC recipient}
+  has_participant: {inverse: participated_in, target: person, description: Person spoke or posted in this transcript or chat}
+  organization:    {inverse: organization_of, target: organization, description: Document's owning organization}
+  client:          {inverse: client_on, target: organization, description: Client party}
+  vendor:          {inverse: vendor_on, target: organization, description: Vendor or supplier party}
+
+  achieves:        {inverse: achieved_by, target: business_objective, columns: [objective, objectives, goal, goals, supports objective], description: Contributes to this objective}
+  within_scope:    {inverse: scopes, target: scope_item, columns: [scope, scope item], description: Falls under this scope item}
+  implements:      {inverse: implemented_by, columns: [business requirement, business requirements, implements, parent requirement, traces to, requirement, requirements], description: Implements a higher-level requirement}
+  integrates_with: {inverse: integrated_by, target: system, columns: [system, systems, integrations, integrates with, application, applications], description: Uses or integrates with this system}
+  uses_term:       {inverse: term_used_by, target: glossary_term, columns: [term, terms, glossary], description: Uses this defined term}
+  applies_to:      {inverse: governed_by, columns: [applies to, applicable to], description: Quality attribute or rule applies to this item}
+  realizes:        {inverse: realized_by, columns: [realizes, functional requirements, requirements covered, covers], description: Use case or story realizes this requirement}
+  performed_by:    {inverse: performs, target: persona, columns: [primary actor, actor, actors, persona, user], description: Performed by this persona}
+  relies_on:       {inverse: relied_on_by, columns: [relies on, provider], description: Depends on this system or provider}
+  blocks:          {inverse: blocked_by, columns: [blocks, impacts], description: Blocks this item until resolved}
+  underpins:       {inverse: underpinned_by, columns: [underpins, supports], description: Assumption underpins this item}
+  limits:          {inverse: limited_by, columns: [limits, affects], description: Constraint limits this item}
+  threatens:       {inverse: threatened_by, columns: [threatens, affected items, impacted items], description: Risk threatens this item}
+  mitigates:       {inverse: mitigated_by, target: risk, columns: [mitigates], description: Mitigates this risk}
+  measures:        {inverse: measured_by, columns: [measures, kpi for], description: Metric measures this item}
+  delivers:        {inverse: delivered_by, columns: [delivers, deliverables, includes], description: Milestone or deliverable delivers this item}
+  follows:         {inverse: precedes, target: milestone, columns: [after, predecessor, follows], description: Comes after this milestone}
+  funds:           {inverse: funded_by, columns: [funds, funded milestones], description: Budget funds this item}
+  belongs_to:      {inverse: contains_item, columns: [epic, feature, parent], description: Story or feature belongs to this epic or feature}
+  verifies:        {inverse: verified_by, columns: [verifies, validates], description: Acceptance criterion verifies this item}
+  resolves:        {inverse: resolved_by, columns: [resolves, closes], description: Decision or action resolves this issue or question}
+  depends_on:      {inverse: dependency_of, columns: [depends on, dependencies, prerequisite, prerequisites], description: Depends on this item}
+  references:      {inverse: referenced_by, description: Generic reference to another item (used when no specific verb applies)}
+
+# Field | Value tables (document control) -> document attributes or links.
+document_fields:
+  document id: document_id
+  doc id: document_id
+  author: authored_by
+  prepared by: authored_by
+  owner: owned_by
+  business owner: owned_by
+  document owner: owned_by
+  sponsor: sponsored_by
+  executive sponsor: sponsored_by
+  organization: organization
+  organisation: organization
+  company: organization
+  client: client
+  customer: client
+  vendor: vendor
+  supplier: vendor
+  contractor: vendor
+  service provider: vendor
+
+# Headings that classify a document. First match by score wins.
+document_kinds:
+  brd: [business requirements document, business requirements, brd]
+  prd: [product requirements document, product requirements, prd, user stories]
+  sow: [statement of work, scope of work, sow, deliverables, payment schedule]
+  meeting_notes: [meeting minutes, minutes of meeting, attendees, action items]
+  contract: [agreement, hereinafter, governing law, termination]
+  proposal: [proposal, executive summary, pricing]
+  specification: [technical specification, design document, architecture]

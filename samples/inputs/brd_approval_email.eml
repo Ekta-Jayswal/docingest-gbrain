@@ -1,0 +1,43 @@
+From: Priya Raman <priya.raman@meridian.example>
+To: Daniel Okafor <daniel.okafor@meridian.example>
+Cc: Mei Lin Chen <meilin.chen@meridian.example>,
+ Arjun Mehta <arjun.mehta@meridian.example>
+Subject: Approval: Lighthouse BRD v1.2 and mobile returns risk register
+Date: Tue, 13 Oct 2026 09:42:00 +0100
+Message-ID: <lighthouse-approval-001@meridian.example>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="===============4551277926224695170=="
+
+--===============4551277926224695170==
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+
+Hi Daniel,
+
+I have approved BRD-LH-001 version 1.2. Please baseline it and share it with =
+Brightline Digital before the statement of work is signed.
+
+Attached is the first risk register for Lighthouse Mobile Returns. Arjun owns=
+ the refund fraud risk; please make sure Finance signs off the $50 instant re=
+fund cap before design approval.
+
+Decision: the mobile returns work will follow Release 2, not run in parallel.
+
+Thanks,
+Priya
+
+--===============4551277926224695170==
+Content-Type: text/csv
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="mobile_returns_risk_register.csv"
+MIME-Version: 1.0
+
+SUQsUmlzayxMaWtlbGlob29kLEltcGFjdCxPd25lcixNaXRpZ2F0aW9uDQpSSVNLLTAxLENhcnJp
+ZXIgUVIgc2Nhbm5pbmcgbm90IHN1cHBvcnRlZCBpbiBydXJhbCBkZXBvdHMsTWVkaXVtLEhpZ2gs
+VG9tIEJyZW5uYW4sS2VlcCBwcmludGVkIGxhYmVscyBhcyBhIGZhbGxiYWNrDQpSSVNLLTAyLFBo
+b3RvIHVwbG9hZHMgZmFpbCBvbiBzbG93IG1vYmlsZSBuZXR3b3JrcyxIaWdoLE1lZGl1bSxSYWZh
+ZWwgU291emEsQ29tcHJlc3MgaW1hZ2VzIG9uIHRoZSBkZXZpY2UgYmVmb3JlIHVwbG9hZA0KUklT
+Sy0wMyxJbnN0YW50IHJlZnVuZHMgaW5jcmVhc2UgZnJhdWQsTWVkaXVtLEhpZ2gsQXJqdW4gTWVo
+dGEsQ2FwIGluc3RhbnQgcmVmdW5kcyBhdCAkNTAgYW5kIGZsYWcgcmVwZWF0IGNsYWltcw0K
+
+--===============4551277926224695170==--

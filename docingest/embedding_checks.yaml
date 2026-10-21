@@ -1,0 +1,12 @@
+# Semantic-search checks for `docingest embed`: each query is worded unlike the document
+# it should find (no shared keywords), and `expect` must appear in a top-5 page slug.
+# Written for the sample documents; add your own lines for your documents.
+queries:
+  - query: get the customer's money back to their card as soon as the parcel reaches the depot
+    expect: brd-lh-001/fr-006
+  - query: someone who relies on a screen reader can still shop
+    expect: brd-lh-001/nfr-04
+  - query: shoppers who cheat by sending goods back again and again to collect cash
+    expect: brd-lh-001/rk-06
+  - query: the service keeps running day and night
+    expect: brd-lh-001/nfr-02

@@ -1,0 +1,17 @@
+# docingest runtime dependencies (direct ones only).
+# Tested with Python 3.14 (project venv) and Python 3.12 (fresh venv), macOS.
+# requirements.lock pins every transitive dependency for the container (Linux, Python 3.12);
+# regenerate it after editing this file (command at the top of requirements.lock).
+# Not installable with pip, provided by the Dockerfile: gbrain v0.60.281.0 with Bun 1.4.3,
+# and LibreOffice (only for legacy .doc files).
+anthropic==1.15.0          # optional AI extraction (--llm)
+beautifulsoup4==4.15.0     # HTML parsing
+extract-msg==0.56.1        # Outlook .msg email
+mammoth==1.13.0            # .docx -> HTML
+markdownify==1.2.3         # HTML -> markdown
+mcp==2.3.0                 # fast reads from `gbrain serve` during verification
+openpyxl==3.1.5            # .xlsx
+pdfplumber==0.11.10        # PDF text, headings, tables
+python-docx==1.2.0         # .docx reference text for the conversion check
+python-pptx==1.0.2         # .pptx
+PyYAML==6.0.3              # vocabulary.yaml
