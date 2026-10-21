@@ -26,8 +26,11 @@ def slugify(text: str, max_len: int = 60) -> str:
 
 def tokens(text: str) -> list[str]:
     """Lower-case ASCII word tokens of a text."""
-    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode().lower()
-    return TOKEN_RE.findall(text)
+    text = unicodedata.normalize("NFKD", text)
+    # Dashes, quotes and other symbols separate words ("November–December"). Dropping them
+    # would glue the words together, and no search index contains the glued word.
+    text = "".join(" " if unicodedata.category(c)[0] in "PSZ" else c for c in text)
+    return TOKEN_RE.findall(text.encode("ascii", "ignore").decode().lower())
 
 
 def token_coverage(reference: str, candidate: str) -> tuple[float, list[str]]:
