@@ -1,0 +1,6 @@
+12/10/2026, 09:14 - Tom Brennan: Warehouse can scan QR returns from day one, tested with two carriers
+12/10/2026, 09:16 - Mei Lin Chen: Great. Support needs the damage photos visible in CareDesk though
+12/10/2026, 09:18 - Daniel Okafor: That's US-04, it's in the PRD as Medium priority
+12/10/2026, 09:21 - Tom Brennan: Rural depots are the problem, two of four carriers can't scan QR yet
+12/10/2026, 09:23 - Daniel Okafor: Then we keep printed labels as fallback, I'll update the PRD
+12/10/2026, 09:30 - Mei Lin Chen: Can we get the agent training scheduled for April?

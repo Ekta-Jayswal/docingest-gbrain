@@ -1,0 +1,6 @@
+work/
+samples/inputs/
+**/__pycache__/
+*.pyc
+.git
+.ruff_cache/
