@@ -6,7 +6,7 @@
 #           -v docingest-brain:/data/brain \
 #           -v docingest-work:/data/work \
 #           docingest ingest /input
-# AI extraction: add  -e ANTHROPIC_API_KEY  and  ingest /input --llm
+# AI extraction: add  -e LITELLM_BASE_URL -e LITELLM_API_KEY  and  ingest /input --llm
 #
 # The container exits non-zero if any document fails to convert or any
 # verification check fails, so it can gate a CI job or a batch scheduler.

@@ -1,8 +1,8 @@
 # What this file does: the optional AI step (`--llm`). It sends sections that the rules could
-# not read to Claude, and only accepts an item if its quote appears word for word in the
+# not read to the LLM, and only accepts an item if its quote appears word for word in the
 # section and its links point at real items of the right type.
 
-"""Optional AI extraction with Claude (enabled with --llm).
+"""Optional AI extraction through the LiteLLM proxy (enabled with --llm).
 
 Runs after rule-based extraction. In the default "auto" mode only sections the
 confidence router marks low-confidence are sent, and only their residual text
@@ -16,17 +16,17 @@ points at the wrong target type is rejected and listed in the report.
 from __future__ import annotations
 
 import json
-import os
 
 from docingest.ingestion.rule_confidence import ai_input
 from docingest.ingestion.extract_with_rules import Extractor
 from docingest.utils.markdown_parsing import normalize_ws, slugify
 from docingest.utils.data_types import DocumentResult, Page
+from docingest.utils.llm_client import ChatClient, LLMError, model_name, prices, settings
 from docingest.vocabulary.vocabulary_loader import Vocabulary
 
-# The Claude model used for extraction. Change it here and nowhere else.
-MODEL = "claude-opus-5-5"
-PRICE_IN, PRICE_OUT = 4.00, 20.00  # USD per million tokens (claude-opus-5-5)
+# The chat model used for extraction. It comes from LLM_MODEL in .env.local.
+MODEL = model_name()
+PRICE_IN, PRICE_OUT = prices()  # USD per million tokens, from LLM_PRICE_IN / LLM_PRICE_OUT
 # Page types that the rules create to hold the document's structure. The AI never extracts these.
 STRUCTURAL_TYPES = {"source_document", "document_section", "record"}
 # Links the rules write for structure. The AI is not offered these verbs.
@@ -35,10 +35,12 @@ STRUCTURAL_VERBS = {"defined_in", "section_of", "mentions", "appears_in", "attac
 MIN_SECTION_CHARS = 80
 
 
-# True when an Anthropic key is set, so the --llm step can run. The command checks this first.
+# True when the proxy address and key are set, so the --llm step can run. The command checks this
+# first.
 def credentials_available() -> bool:
-    """True if an Anthropic API key or auth token is set in the environment."""
-    return bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"))
+    """True if LITELLM_BASE_URL and LITELLM_API_KEY are both set in the environment."""
+    base, key = settings()
+    return bool(base and key)
 
 
 # Opening of the system prompt: what the AI is doing, and that it must extract only what
@@ -152,7 +154,7 @@ def _schema(vocab: Vocabulary) -> dict:
 
 # Runs the AI over sections and merges the accepted items into the document.
 class LLMExtractor:
-    """Claude-based extraction for sections the rules could not fully read."""
+    """LLM-based extraction for sections the rules could not fully read."""
 
     # Set up the extractor. A client can be passed in (tests do this); otherwise a real one is
     # made.
@@ -164,10 +166,10 @@ class LLMExtractor:
         client=None,
         mode: str = "auto",
     ):
-        import anthropic
-
         self.v, self.x, self.effort, self.mode = vocab, extractor, effort, mode
-        self.client = client or anthropic.Anthropic(max_retries=4)
+        # Tests pass a fake client; otherwise a client for the LiteLLM proxy is made from the
+        # environment.
+        self.client = client or ChatClient(*settings())
         self.system = _system_prompt(vocab)
         self.schema = _schema(vocab)
 
@@ -188,61 +190,29 @@ class LLMExtractor:
             known[f"{g.vocab_type}:{g.name}"] = (g.slug, g.vocab_type, g.name)
         return known
 
-    # Make one request to Claude for one section. Returns (parsed answer, error message, token
-    # usage). Errors are returned rather than raised, so one bad section does not stop the run.
+    # Make one request to the chat model for one section. Returns (parsed answer, error message,
+    # token usage). Errors are returned rather than raised, so one bad section does not stop the
+    # run.
     def _call(self, user: list[dict]) -> tuple[dict | None, str | None, dict]:
-        import anthropic
-
+        # The section prompt is sent as one text message; the system prompt carries the rules.
+        user_text = "\n\n".join(block["text"] for block in user)
         try:
-            resp = self.client.beta.messages.create(
-                model=MODEL,
-                max_tokens=16000,
-                # Turn on the server-side fallback, so the API can answer with a fallback model if
-                # the main one cannot.
-                betas=["server-side-fallback-2026-07-01"],
-                fallbacks="default",
-                # The system prompt is marked for caching, so Claude reads it at a lower cost for
-                # each section.
-                system=[
-                    {"type": "text", "text": self.system, "cache_control": {"type": "ephemeral"}}
-                ],
-                # Force the answer into the JSON schema, so it can be parsed without guessing.
-                output_config={
-                    "effort": self.effort,
-                    "format": {"type": "json_schema", "schema": self.schema},
-                },
-                messages=[{"role": "user", "content": user}],
-            )
+            text, usage = self.client.complete(self.system, user_text, self.schema, "extraction")
         # Failures become error messages for the report. The section is skipped and the run goes
         # on.
-        except anthropic.RateLimitError as e:
-            return None, f"rate limited after retries: {e.message}", {}
-        except anthropic.APIStatusError as e:
-            return None, f"API error {e.status_code}: {e.message}", {}
-        except anthropic.APIConnectionError as e:
-            return None, f"connection error: {e}", {}
-        usage = {
-            "input": resp.usage.input_tokens or 0,
-            "output": resp.usage.output_tokens or 0,
-            "cache_read": getattr(resp.usage, "cache_read_input_tokens", 0) or 0,
-        }
-        # Stop reasons that mean there is no usable answer for this section.
-        if resp.stop_reason == "refusal":
-            return None, "model declined the section", usage
-        if resp.stop_reason == "max_tokens":
-            return None, "output hit max_tokens; section skipped", usage
-        # The answer is the text part of the reply.
-        text = next((b.text for b in resp.content if b.type == "text"), "")
+        except LLMError as e:
+            return None, str(e), {}
+        # The answer is the JSON text of the reply.
         try:
             return json.loads(text), None, usage
         except json.JSONDecodeError as e:
             return None, f"invalid JSON: {e}", usage
 
-    # Extract from the document's sections with Claude and merge the accepted items into the
+    # Extract from the document's sections with the LLM and merge the accepted items into the
     # document. Returns the report: sections sent, items accepted and rejected, tokens and
     # estimated cost.
     def enrich(self, res: DocumentResult) -> dict:
-        """Extract from the document's sections with Claude and merge accepted items into ``res``.
+        """Extract from the document's sections with the LLM and merge accepted items into ``res``.
 
         Returns the report: sections sent, accepted and rejected items, tokens
         and estimated cost. The report is also stored on ``res.llm_report``.
@@ -277,7 +247,6 @@ class LLMExtractor:
         base_known = self._known(res)
         doc_block = {
             "type": "text",
-            "cache_control": {"type": "ephemeral"},
             "text": f"Document: {res.title} (kind: {res.kind})\n\nKnown items:\n"
             + (
                 "\n".join(f'- {k}: {vt} "{n}"' for k, (_, vt, n) in base_known.items()) or "(none)"
@@ -317,7 +286,7 @@ class LLMExtractor:
                     f"<section>\n{text}\n</section>",
                 },
             ]
-            # Ask Claude about this section, and count its tokens for the cost estimate.
+            # Ask the model about this section, and count its tokens for the cost estimate.
             data, error, usage = self._call(user)
             report["sections"] += 1
             report["sent"].append(s.index + 1)

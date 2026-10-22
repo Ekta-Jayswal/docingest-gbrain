@@ -4,8 +4,8 @@
 
 """AI suggestions for schema gaps the rules could not settle.
 
-Runs only with --llm. The model reads a proposal (the gap, every affected row, the
-vocabulary's types or verbs) and answers with one structured suggestion. A suggestion is
+Runs only with --llm. The model (through the LiteLLM proxy) reads a proposal (the gap, every
+affected row, the vocabulary's types or verbs) and answers with one structured suggestion. A suggestion is
 kept only if its target exists, it passes the same checks a reviewer's decision does, and its
 evidence is quoted verbatim from the rows. It never applies itself: it fills the proposal so
 a reviewer can approve with one word.
@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import json
 
-from docingest.ingestion.extract_with_ai import MODEL
 from docingest.ingestion.review_proposals import ReviewBoard, ReviewError
+from docingest.utils.llm_client import ChatClient, LLMError, settings
 from docingest.utils.markdown_parsing import normalize_ws
 from docingest.vocabulary.vocabulary_loader import Vocabulary
 
@@ -71,15 +71,9 @@ def _prompt(p: dict, vocab: Vocabulary) -> str:
 # Get one validated suggestion for a proposal. Returns None when the answer is unusable.
 def suggest(client, vocab: Vocabulary, p: dict, effort: str = "medium") -> dict | None:
     """One validated suggestion for a proposal, or None when the answer is unusable."""
-    resp = client.beta.messages.create(
-        model=MODEL,
-        max_tokens=2000,
-        system=INSTRUCTIONS,
-        output_config={"effort": effort, "format": {"type": "json_schema", "schema": _schema(vocab)}},
-        messages=[{"role": "user", "content": _prompt(p, vocab)}],
-    )
-    # Take the text part of the reply, which is the JSON answer.
-    text = next((b.text for b in resp.content if b.type == "text"), "")
+    # The answer is the JSON text of the reply. effort is kept for the callers; the proxy ignores
+    # it.
+    text, _usage = client.complete(INSTRUCTIONS, _prompt(p, vocab), _schema(vocab), "proposal")
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
@@ -105,10 +99,8 @@ def suggest(client, vocab: Vocabulary, p: dict, effort: str = "medium") -> dict 
 # Add a suggestion to each proposal that gets a valid one. Returns how many did.
 def suggest_all(board: ReviewBoard, proposals: dict[str, dict], vocab: Vocabulary, effort: str = "medium", client=None) -> int:
     """Add a suggestion to each proposal that gets a valid one; returns how many did."""
-    import anthropic
-
-    # Use the client passed in (tests pass a fake one), or create the real one.
-    client = client or anthropic.Anthropic(max_retries=4)
+    # Use the client passed in (tests pass a fake one), or create the one for the LiteLLM proxy.
+    client = client or ChatClient(*settings())
     added = 0
     for pid, p in proposals.items():
         try:
@@ -117,7 +109,7 @@ def suggest_all(board: ReviewBoard, proposals: dict[str, dict], vocab: Vocabular
             s = suggest(client, vocab, p, effort)
             if s:
                 board.build(p, s, vocab, board.learned())  # same checks as a reviewer's decision
-        except (anthropic.APIError, ReviewError, KeyError):
+        except (LLMError, ReviewError, KeyError):
             continue
         if s:
             # Attach the suggestion to the proposal and mark it as the chosen action, ready for a

@@ -90,8 +90,17 @@ class Handler(BaseHTTPRequestHandler):
 
     # POST: embed each input text. Any path other than embeddings is not found.
     def do_POST(self) -> None:
-        """Embed texts."""
+        """Embed texts, or answer a chat request with a fixed JSON reply."""
         body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        if self.path.rstrip("/").endswith("/chat/completions"):
+            reply = json.dumps({"ok": True, "model": body.get("model")})
+            return self._send(200, {
+                "object": "chat.completion",
+                "model": body.get("model"),
+                "choices": [{"index": 0, "finish_reason": "stop",
+                             "message": {"role": "assistant", "content": reply}}],
+                "usage": {"prompt_tokens": 12, "completion_tokens": 7, "total_tokens": 19},
+            })
         if not self.path.rstrip("/").endswith("/embeddings"):
             return self._send(404, {"error": "not found"})
         inputs = body.get("input", [])
