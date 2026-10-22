@@ -26,6 +26,8 @@ import uuid
 from collections import Counter
 from pathlib import Path
 
+from docingest.utils import clock
+
 # Version of the run-history row format. Change it if the saved fields change.
 HISTORY_VERSION = 1
 
@@ -39,7 +41,7 @@ def history_dir(work: Path) -> Path:
 # Create a run ID that sorts by time and is unlikely to repeat.
 def new_run_id() -> str:
     """A sortable, unique run ID: UTC time plus a short random suffix."""
-    return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + "-" + uuid.uuid4().hex[:6]
+    return clock.compact() + "-" + uuid.uuid4().hex[:6]
 
 
 # Name the person who ran the command, for the history.
@@ -153,10 +155,12 @@ def record_ingest(
     """
     verified = {d["key"]: d for d in (report or {}).get("documents", [])}
     base = {k: run.get(k) for k in ("run_id", "project", "team", "submitted_by")}
+    # The log file of this run, relative to the work folder. The dashboard links to it.
+    base["log_file"] = f"logs/runs/{run.get('run_id')}.log"
     docs = [
         {
             **base,
-            "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "recorded_at": clock.iso(),
             **document_record(
                 work,
                 key,
@@ -172,7 +176,7 @@ def record_ingest(
         docs.append(
             {
                 **base,
-                "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "recorded_at": clock.iso(),
                 "key": None,
                 "title": src.name,
                 "kind": None,
@@ -189,7 +193,7 @@ def record_ingest(
     row = {
         **run,
         "history_version": HISTORY_VERSION,
-        "finished_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "finished_at": clock.iso(),
         "host": socket.gethostname(),
         "brain": str(brain),
         "documents": len(result["processed"]),

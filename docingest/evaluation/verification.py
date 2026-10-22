@@ -24,6 +24,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
+from docingest.utils import clock
 from docingest.utils.gbrain_client import GBrain, Reader
 from docingest.utils.markdown_parsing import normalize_ws, token_coverage, tokens
 
@@ -442,7 +443,7 @@ def verify(work: Path, gb: GBrain, keys: list[str], search_limit: int = 0) -> di
     """Run every check for the given documents and the shared pages; return the report."""
     started = time.time()
     report = {
-        "run_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "run_at": clock.iso(),
         "brain_home": str(gb.home),
         "documents": [],
         "global": {},

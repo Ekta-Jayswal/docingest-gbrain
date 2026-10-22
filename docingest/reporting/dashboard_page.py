@@ -13,11 +13,12 @@ network: the file opens straight from the work volume.
 from __future__ import annotations
 
 import html
-import time
+import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
 from docingest.reporting import run_history
+from docingest.utils import clock
 
 # How many document entries the page shows in full. Older entries are left out to keep the file
 # small.
@@ -148,15 +149,29 @@ def _evals(evals: list[dict]) -> str:
 
 
 # The runs table: one row per run, with its project, team, counts and verification status.
-def _runs(runs: list[dict]) -> str:
+# The link to a run's log file, written relative to where the dashboard file is saved.
+def _log_links(work: Path, dashboard: Path):
+    """A function that turns a run's log file into an 'open' link (empty when there is no log)."""
+    # Return the 'log' link for one run's log file, or nothing when the run has no log.
+    def link_for(log_file: str | None) -> str:
+        if not log_file:
+            return ""
+        rel = os.path.relpath(work / log_file, dashboard.parent)
+        return f'<a href="{_e(rel)}" title="open this run\'s log">log</a>'
+    return link_for
+
+
+# The runs table: one row per run, with its log link, counts, checks and time taken.
+def _runs(runs: list[dict], link_for) -> str:
     head = (
-        "<tr><th>Run</th><th>Started</th><th>Project</th><th>Team</th><th>By</th>"
+        "<tr><th>Run</th><th>Log</th><th>Started</th><th>Project</th><th>Team</th><th>By</th>"
         "<th>Input path</th><th class='n'>Docs</th><th class='n'>Failed</th>"
         "<th class='n'>Pages</th><th class='n'>Chunks</th><th class='n'>Links</th>"
         "<th>Checks</th><th class='n'>Seconds</th></tr>"
     )
     rows = "".join(
-        f"<tr><td><code>{_e(r.get('run_id'))}</code></td><td>{_e(r.get('started_at'))}</td>"
+        f"<tr><td><code>{_e(r.get('run_id'))}</code></td><td>{link_for(r.get('log_file'))}</td>"
+        f"<td>{_e(r.get('started_at'))}</td>"
         f"<td>{_e(r.get('project'))}</td><td>{_e(r.get('team'))}</td><td>{_e(r.get('submitted_by'))}</td>"
         f"<td><code>{_e(r.get('input_path'))}</code></td><td class='n'>{_e(r.get('documents'))}</td>"
         f"<td class='n'>{_e(r.get('failed'))}</td><td class='n'>{_e(r.get('pages'))}</td>"
@@ -179,7 +194,7 @@ def _kv(pairs: list[tuple[str, object]]) -> str:
 
 # One expandable entry for a document: a summary line, then its input, tables, pages, links,
 # checks, sections and warnings.
-def _document(d: dict) -> str:
+def _document(d: dict, link_for) -> str:
     """One expandable entry: everything recorded about one document in one run."""
     # A failed document has no content or checks, so its entry shows only its identity and the
     # error.
@@ -198,7 +213,7 @@ def _document(d: dict) -> str:
     )
     ident = _kv(
         [
-            ("Run", f"<code>{_e(d.get('run_id'))}</code>"),
+            ("Run", f"<code>{_e(d.get('run_id'))}</code> {link_for(d.get('log_file'))}"),
             ("Project / team", f"{_e(d.get('project'))} / {_e(d.get('team') or '-')}"),
             ("Submitted by", _e(d.get("submitted_by"))),
             ("Input file", f"<code>{_e(d.get('source_path'))}</code>"),
@@ -246,7 +261,7 @@ def _document(d: dict) -> str:
 
 
 # Build the whole page from the run history in the work folder. Returns the HTML text.
-def render(work: Path) -> str:
+def render(work: Path, out: Path | None = None) -> str:
     """The whole page as HTML."""
     runs = run_history.read(work, "runs")
     docs = run_history.read(work, "documents")
@@ -302,14 +317,15 @@ def render(work: Path) -> str:
         ]
     )
     # The newest documents, in full, most recent first.
-    doc_entries = "".join(_document(d) for d in reversed(docs[-MAX_DOCUMENTS:]))
+    link_for = _log_links(work, out or work / "reports" / "dashboard.html")
+    doc_entries = "".join(_document(d, link_for) for d in reversed(docs[-MAX_DOCUMENTS:]))
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>docingest run history</title><style>{CSS}</style></head>
 <body><main>
 <h1>docingest run history</h1>
-<p class="sub">Generated {_e(time.strftime("%Y-%m-%d %H:%M:%S %z"))} from
+<p class="sub">Generated {_e(clock.now().strftime("%Y-%m-%d %H:%M:%S IST"))} from
 <code>{_e(run_history.history_dir(work))}</code>. Totals use each document's latest run.</p>
 <div class="cards">{card_html}</div>
 <h2>Projects</h2>
@@ -319,7 +335,7 @@ def render(work: Path) -> str:
 <h2>Breakdown</h2><div class="grid">{breakdowns}</div>
 <h2>Activity</h2>{_activity(docs)}
 <h2>Evaluation</h2>{_evals(evals)}
-<h2>Runs</h2>{_runs(runs)}
+<h2>Runs</h2>{_runs(runs, link_for)}
 <h2>Documents</h2>
 <p class="muted">Newest first, one entry per document per run (up to {MAX_DOCUMENTS}).
 Open an entry to see its input, tables, pages, links and checks.</p>

@@ -16,6 +16,7 @@ import json
 import time
 from pathlib import Path
 
+from docingest.utils import clock
 from docingest.utils.data_types import DocumentResult, Page
 from docingest.vocabulary.vocabulary_loader import Vocabulary
 
@@ -73,7 +74,7 @@ class State:
             "kind": res.kind,
             "title": res.title,
             "pages": current,
-            "ingested_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "ingested_at": clock.iso(),
         }
         # Remove this document's old contributions first, so re-ingesting it does not double them.
         for entry in self.data["globals"].values():

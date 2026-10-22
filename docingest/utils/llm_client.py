@@ -15,10 +15,16 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 
+from docingest.utils.logger import get_logger
+
 DEFAULT_MODEL = "gpt-5-mini-ai"
+DEFAULT_TIMEOUT = 300  # seconds to wait for one model reply
+
+_log = get_logger(__name__)
 
 
 # Raised when a chat call fails. The AI steps catch this one type and record the reason.
@@ -44,6 +50,15 @@ def prices() -> tuple[float, float]:
         return 0.0, 0.0
 
 
+# How long one model call may wait for its reply, from LLM_TIMEOUT (seconds).
+def timeout_seconds() -> int:
+    """Seconds to wait for one model reply: LLM_TIMEOUT, or 300."""
+    try:
+        return int(os.environ.get("LLM_TIMEOUT", DEFAULT_TIMEOUT))
+    except ValueError:
+        return DEFAULT_TIMEOUT
+
+
 # The proxy address and key from the environment, as a (base URL, key) pair.
 def settings() -> tuple[str | None, str | None]:
     """The proxy base URL and key from LITELLM_BASE_URL and LITELLM_API_KEY."""
@@ -57,14 +72,14 @@ class ChatClient:
     # Store the proxy address, key, and model. Without an address and a key nothing can be called,
     # so this fails early.
     def __init__(self, base_url: str | None, api_key: str | None, model: str | None = None,
-                 timeout: int = 300):  # fmt: skip
+                 timeout: int | None = None):  # fmt: skip
         # Without an address and a key there is nothing to call, so fail with a clear message.
         if not base_url or not api_key:
             raise LLMError("LITELLM_BASE_URL and LITELLM_API_KEY must be set in .env.local")
         self.url = base_url.rstrip("/") + "/chat/completions"
         self.key = api_key
         self.model = model or model_name()
-        self.timeout = timeout
+        self.timeout = timeout or timeout_seconds()
 
     # Send one request and return (the answer text, token usage). Raises LLMError on failure.
     def complete(
@@ -83,6 +98,8 @@ class ChatClient:
                 "json_schema": {"name": name, "schema": schema, "strict": True},
             },
         }
+        _log.debug("request sent", model=self.model, chars=len(system) + len(user))
+        started = time.time()
         req = urllib.request.Request(
             self.url,
             data=json.dumps(body).encode(),
@@ -92,14 +109,18 @@ class ChatClient:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 data = json.load(resp)
         except urllib.error.HTTPError as e:
+            _log.error("model request failed", secs=f"{time.time() - started:.1f}", http=e.code)
             raise LLMError(f"API error {e.code}: {e.read(300).decode(errors='replace')}") from e
         except (urllib.error.URLError, TimeoutError) as e:
+            _log.error("model request failed", secs=f"{time.time() - started:.1f}", reason=e)
             raise LLMError(f"connection error: {e}") from e
         try:
             text = data["choices"][0]["message"]["content"] or ""
         except (KeyError, IndexError, TypeError) as e:
             raise LLMError(f"unexpected reply: {str(data)[:200]}") from e
         usage = data.get("usage") or {}
+        _log.debug("reply received", secs=f"{time.time() - started:.1f}",
+                   tokens_in=usage.get("prompt_tokens"), tokens_out=usage.get("completion_tokens"))
         return text, {
             "input": int(usage.get("prompt_tokens") or 0),
             "output": int(usage.get("completion_tokens") or 0),

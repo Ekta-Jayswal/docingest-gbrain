@@ -40,9 +40,13 @@ from pathlib import Path
 
 import yaml
 
+from docingest.utils import clock
+from docingest.utils.logger import get_logger
 from docingest.utils.gbrain_client import Reader
 from docingest.ingestion.pipeline import Pipeline
 from docingest.vocabulary.vocabulary_loader import Vocabulary
+
+_log = get_logger(__name__)
 
 # The answer key folder (answer_keys/), two levels above this file.
 DEFAULT_ANSWERS = Path(__file__).resolve().parents[2] / "answer_keys"
@@ -416,10 +420,11 @@ def _score_retrieval(
 # the result. The brain is a temporary folder unless keep is set.
 def run(answer_path: Path, work: Path, keep: bool = False) -> dict:
     """Ingest the answer key's document into a new brain and score every stage."""
+    _log.info("answer key started", key=answer_path.stem)
     ak = yaml.safe_load(answer_path.read_text())
     doc = (answer_path.parent / ak["document"]).resolve()
     vocab = Vocabulary()
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+    stamp = clock.compact()
     # With --keep, the brain and work files stay under work/eval. Otherwise they go to a temporary
     # folder that is deleted afterwards.
     root = (
@@ -428,6 +433,8 @@ def run(answer_path: Path, work: Path, keep: bool = False) -> dict:
         else Path(tempfile.mkdtemp(prefix="docingest-eval-")).resolve()
     )
     brain = root / "brain"
+    # The throwaway brain is a temporary folder: it is removed after the scoring unless --keep.
+    _log.info("throwaway brain", path=brain)
     ework = root / "work"
     started = time.time()
     try:
@@ -519,11 +526,13 @@ def run(answer_path: Path, work: Path, keep: bool = False) -> dict:
         # is left out.
         scored = [v for k, v in summary.items() if k in OVERALL and v is not None]
         summary["overall"] = sum(scored) / len(scored) if scored else None
+        _log.step("answer key scored", key=answer_path.stem, overall=f"{(summary['overall'] or 0) * 100:.0f}%",
+                  secs=f"{time.time() - started:.1f}")
         return {
             "answer_key": answer_path.stem,
             "answer_path": str(answer_path),
             "document": str(doc),
-            "evaluated_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "evaluated_at": clock.iso(),
             "vocabulary_version": vocab.pack["version"],
             "summary": summary,
             "stages": stages,
@@ -671,7 +680,7 @@ def write_reports(reports: list[dict], work: Path) -> Path:
     ]
     md = "\n".join(head) + "\n\n" + "\n".join(render(r) for r in reports)
     data = json.dumps(reports, indent=1, ensure_ascii=False)
-    stamp = time.strftime("%Y%m%d-%H%M%S")
+    stamp = clock.compact()
     (folder / f"eval-{stamp}.md").write_text(md)
     (folder / f"eval-{stamp}.json").write_text(data)
     (folder / "eval-latest.md").write_text(md)
