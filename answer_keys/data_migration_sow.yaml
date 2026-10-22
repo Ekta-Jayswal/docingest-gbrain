@@ -1,0 +1,107 @@
+# Answer key: ideal ingestion of the data platform migration SOW (synthetic, HTML).
+# Written from the document alone, not from the pipeline's output.
+
+document: data_migration_sow.html
+kind: sow
+title_contains: Data Platform Migration
+document_attributes:
+  document_id: SOW-2026-118
+  effective_date: "2026-11-03"
+
+sections:
+  - 1. Background
+  - 2. Parties
+  - 3. Scope
+  - 3.1 In scope
+  - 3.2 Out of scope
+  - 4. Deliverables
+  - 5. Milestones
+  - 6. Fees and Payment Schedule
+  - 7. Roles and Responsibilities
+  - 8. Service Levels During the Engagement
+  - 9. Assumptions
+  - 10. Change Control
+  - 11. Signatures
+
+tables:
+  - {first_column: Party, becomes: parties}
+  - {first_column: ID, becomes: "entities: deliverable"}
+  - {first_column: ID, becomes: "entities: milestone"}
+  - {first_column: ID, becomes: "entities: payment_term"}
+  - {first_column: Name, becomes: "entities: person"}
+  - {first_column: ID, becomes: "entities: service_level"}
+  - {first_column: Party, becomes: approvals}
+
+entities:
+  - {key: org-calder, type: organization, name: Calder Freight Ltd}
+  - {key: org-brightwater, type: organization, name: Brightwater Analytics LLP}
+  - {key: p-marsh, type: person, name: Helen Marsh, attributes: {role: Data lead and approver of deliverables}}
+  - {key: p-pritchard, type: person, name: Owen Pritchard, attributes: {role: Finance reporting owner}}
+  - {key: p-haddad, type: person, name: Samira Haddad, attributes: {role: Engagement manager}}
+  - {key: p-byrne, type: person, name: Liam Byrne, attributes: {role: Lead data engineer}}
+  - {key: p-okonjo, type: person, name: Rachel Okonjo, attributes: {job_title: Chief Financial Officer}}
+  - {key: D-01, type: deliverable, id: D-01, attributes: {acceptance: Approved by the Calder Freight data lead}}
+  - {key: D-02, type: deliverable, id: D-02, attributes: {acceptance: All 140 loads complete within the nightly window for five consecutive nights}}
+  - {key: D-03, type: deliverable, id: D-03, attributes: {acceptance: Report totals match the old platform to the cent for one month-end close}}
+  - {key: D-04, type: deliverable, id: D-04, attributes: {acceptance: Old warehouse switched off and its data archived}}
+  - {key: M-1, type: milestone, id: M-1, attributes: {target_date: "2026-11-28"}}
+  - {key: M-2, type: milestone, id: M-2, attributes: {target_date: "2027-02-12"}}
+  - {key: M-3, type: milestone, id: M-3, attributes: {target_date: "2027-04-09"}}
+  - {key: M-4, type: milestone, id: M-4, attributes: {target_date: "2027-05-07"}}
+  - {key: PAY-1, type: payment_term, id: PAY-1, attributes: {amount: "61,800"}}
+  - {key: PAY-2, type: payment_term, id: PAY-2, attributes: {amount: "144,200"}}
+  - {key: PAY-3, type: payment_term, id: PAY-3, attributes: {amount: "144,200"}}
+  - {key: PAY-4, type: payment_term, id: PAY-4, attributes: {amount: "61,800"}}
+  - {key: SLA-1, type: service_level, id: SLA-1, attributes: {target: "Within 1 hour, 24x7"}}
+  - {key: SLA-2, type: service_level, id: SLA-2, attributes: {target: "Every Friday by 17:00"}}
+  - {key: SLA-3, type: service_level, id: SLA-3, attributes: {target: Within 2 business days}}
+  - {key: as-1, type: assumption, name: Calder Freight provides read access to all source systems by 2026-11-10.}
+  - {key: as-2, type: assumption, name: The cloud platform subscription is purchased and paid for by Calder Freight.}
+  - {key: as-3, type: assumption, name: Source data volumes grow by no more than 20% during the engagement.}
+  - {key: sc-in-1, type: scope_item, name: Migration of 140 nightly data loads to the new platform, attributes: {scope: in}}
+  - {key: sc-in-2, type: scope_item, name: Rebuild of 32 finance reports on the new platform, attributes: {scope: in}}
+  - {key: sc-in-3, type: scope_item, name: Parallel run of old and new platforms for one month-end close, attributes: {scope: in}}
+  - {key: sc-in-4, type: scope_item, name: Decommissioning of the on-premises warehouse, attributes: {scope: in}}
+  - {key: sc-out-1, type: scope_item, name: New reports or dashboards beyond the 32 listed in Appendix A, attributes: {scope: out}}
+  - {key: sc-out-2, type: scope_item, name: Changes to source systems, attributes: {scope: out}}
+  - {key: sc-out-3, type: scope_item, name: Ongoing platform support after acceptance, attributes: {scope: out}}
+
+links:
+  # Parties table, Role column.
+  - [document, has_client, org-calder]
+  - [document, has_vendor, org-brightwater]
+  # Deliverables table, Due Milestone column.
+  - [D-01, scheduled_for, M-1]
+  - [D-02, scheduled_for, M-2]
+  - [D-03, scheduled_for, M-3]
+  - [D-04, scheduled_for, M-4]
+  # Payment schedule, Milestone column.
+  - [PAY-1, paid_on, M-1]
+  - [PAY-2, paid_on, M-2]
+  - [PAY-3, paid_on, M-3]
+  - [PAY-4, paid_on, M-4]
+  # Roles and signatures tables, Organisation and Party columns.
+  - [p-marsh, member_of, org-calder]
+  - [p-pritchard, member_of, org-calder]
+  - [p-haddad, member_of, org-brightwater]
+  - [p-byrne, member_of, org-brightwater]
+  - [p-okonjo, member_of, org-calder]
+  # Signatures table: signed and dated.
+  - [p-okonjo, approved, document]
+  - [p-haddad, approved, document]
+
+review_candidates:
+  - [D-01, accepted_by, p-marsh]
+  - [M-2, follows, M-1]
+  - [M-3, follows, M-2]
+  - [M-4, follows, M-3]
+
+questions:
+  - {query: parallel run month-end close, expect: [sc-in-3, D-03, M-3]}
+  - {query: severity-1 load failure, expect: [SLA-1]}
+  - {query: fixed fee 412,000, expect: ["section:6. Fees and Payment Schedule"]}
+  - {query: decommissioning record, expect: [D-04]}
+  - {query: read access to all source systems, expect: [as-1, "section:9. Assumptions"]}
+  - {query: written change request, expect: ["section:10. Change Control"]}
+  - {query: lead data engineer, expect: [p-byrne, "section:7. Roles and Responsibilities"]}
+  - {query: Appendix A, expect: [sc-out-1, "section:3.2 Out of scope"]}

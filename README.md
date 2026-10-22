@@ -33,7 +33,7 @@ You can pass one file or a whole folder; the files are processed one after anoth
 9. [Sample input](#9-sample-input)
 10. [Sample output](#10-sample-output)
 11. [Exploring the brain with gbrain](#11-exploring-the-brain-with-gbrain)
-12. [File reference](#12-file-reference)
+12. [Project layout](#12-project-layout)
 13. [Customizing](#13-customizing)
 14. [Docker](#14-docker)
 15. [Troubleshooting and limitations](#15-troubleshooting-and-limitations)
@@ -44,7 +44,7 @@ You can pass one file or a whole folder; the files are processed one after anoth
 
 ```bash
 cd docingest
-./ingest.sh ingest samples/inputs          # ingest every sample document, then verify
+./ingest.sh ingest sample_documents          # ingest every sample document, then verify
 open work/reports/latest.md                # read the verification report
 ```
 
@@ -94,7 +94,7 @@ There are two dependency files:
 | `mcp` | fast reads from `gbrain serve` during verification |
 | `PyYAML` | `vocabulary.yaml` |
 
-`requirements-dev.txt` adds `reportlab`, which only `samples/make_samples.py` needs to generate the sample PDF.
+`requirements-dev.txt` adds `reportlab`, which only `tests/helpers/make_sample_documents.py` needs to generate the sample PDF.
 
 Both files were checked:
 
@@ -140,22 +140,22 @@ The global options `--brain <dir>` and `--work <dir>` override the first two var
  input file or folder
         │  (one file at a time; email attachments are queued as their own documents)
         ▼
- 1. convert      convert.py     any format → markdown + an independent plain-text extraction
- 2. classify     classify.py    brd / prd / sow / email / transcript / chat / ... 
- 3. extract      extract.py     sections, entity pages, shared entities, typed links (rules)
- 4. route        confidence.py  per section: fully covered by rules, or low-confidence?
- 5. AI (opt.)    llm.py         Claude reads only the low-confidence sections (--llm)
- 6. write        writer.py      one markdown file per page, with frontmatter links
- 7. import       gbrain.py      gbrain import --no-embed  (pages are chunked here)
+ 1. convert      ingestion/convert_to_markdown.py   any format → markdown + an independent plain-text extraction
+ 2. classify     ingestion/detect_document_kind.py      brd / prd / sow / email / transcript / chat / ... 
+ 3. extract      ingestion/extract_with_rules.py    sections, entity pages, shared entities, typed links (rules)
+ 4. route        ingestion/rule_confidence.py    per section: fully covered by rules, or low-confidence?
+ 5. AI (opt.)    ingestion/extract_with_ai.py      Claude reads only the low-confidence sections (--llm)
+ 6. write        ingestion/write_pages.py           one markdown file per page, with frontmatter links
+ 7. import       utils/gbrain_client.py                     gbrain import --no-embed  (pages are chunked here)
         ▼
  after all files:
- 8. shared pages  state.py      people / companies / systems / glossary merged across documents
- 9. clean up      pipeline.py   soft-delete pages that no document produces any more
-10. link          gbrain        gbrain extract links (frontmatter → typed graph edges)
-11. verify        verify.py     every word, section, chunk, page and link checked → report
+ 8. shared pages ingestion/ingest_state.py          people / companies / systems / glossary merged across documents
+ 9. clean up     ingestion/pipeline.py                      soft-delete pages that no document produces any more
+10. link         gbrain                                     gbrain extract links (frontmatter → typed graph edges)
+11. verify       evaluation/verification.py                 every word, section, chunk, page and link checked → report
 ```
 
-`pipeline.py` drives the whole run, and `cli.py` is the command line.
+`ingestion/pipeline.py` drives the whole run, and `commands.py` is the command line. All paths are under `docingest/`.
 
 ---
 
@@ -166,8 +166,8 @@ Run commands through `./ingest.sh <command>` locally, or `docker run … docinge
 ### `ingest <path>`: convert, extract, import and verify
 
 ```bash
-./ingest.sh ingest samples/inputs
-./ingest.sh ingest samples/inputs/lighthouse_brd.md --kind brd
+./ingest.sh ingest sample_documents
+./ingest.sh ingest sample_documents/lighthouse_brd.md --kind brd
 ./ingest.sh ingest inbox/ --llm --llm-effort high
 ```
 
@@ -179,12 +179,28 @@ Run commands through `./ingest.sh <command>` locally, or `docker run … docinge
 | `--kind brd` | Force the document kind for the given files instead of detecting it |
 | `--no-verify` | Skip verification after ingesting |
 | `--search-checks N` | Search-check at most N sections per document (default `0` = all) |
+| `--schema-mode auto\|review\|off` | Unknown ID prefixes and link columns: `auto` lets the rules apply clear ones and queues the rest for reviewers (default); `review` queues all; `off` ignores them. See `./ingest.sh review` and COMMANDS.md section 11 |
+| `--pending-exit-code N` | Exit code when the run succeeded but proposals wait for a reviewer (default `2`; `0` ignores them) |
+
+### `review ...`: settle schema gaps
+
+```bash
+./ingest.sh review list | show P-0007 | approve P-0007 | map P-0008 owned_by | reject P-0009
+./ingest.sh review apply | revert P-0007 | log
+```
+
+Where the vocabulary does not know an ID prefix or link column, the document is still ingested
+with the generic `record` type and `references` links, and a proposal is written to
+`work/review/` (read `PENDING.md`). Rules apply clear cases, the optional AI pass suggests for
+the rest, and a person decides what is left, with the evidence, a preview of the change, and
+safeguards (two reviewers for new types, automatic rollback if verification fails, `revert`).
+Approved additions live in `work/vocabulary.learned.yaml`. Full guide: COMMANDS.md section 11.
 
 ### `plan <path>`: preview routing and AI cost, without touching the brain
 
 ```bash
-./ingest.sh plan samples/inputs         # low-confidence sections only
-./ingest.sh plan samples/inputs -v      # every section, with its rule coverage
+./ingest.sh plan sample_documents         # low-confidence sections only
+./ingest.sh plan sample_documents -v      # every section, with its rule coverage
 ```
 
 `plan` converts and extracts in memory, then prints which sections the rules fully cover and which would go to Claude, with the reasons. It also estimates the tokens and cost of `--llm` and `--llm-all`. It needs no API key and writes nothing.
@@ -201,7 +217,7 @@ The report is written to `work/reports/latest.md` and `latest.json`, plus timest
 ### `convert <file>`: print the markdown conversion
 
 ```bash
-./ingest.sh convert samples/inputs/mobile_returns_prd.pdf > /tmp/prd.md
+./ingest.sh convert sample_documents/mobile_returns_prd.pdf > /tmp/prd.md
 ```
 
 Warnings (for example "PDF has no text layer, needs OCR") and attachment names are printed to stderr.
@@ -265,9 +281,9 @@ The rules turn structured content into entities and links:
 | Approval table (approver + decision columns) | `person —approved→ document`, with the decision details |
 | Email headers | `sent_by`, `sent_to`, `copied_to` people, with their email addresses |
 | Transcript and chat speakers | `has_participant` people |
-| ID mentioned in any section text | `section —mentions_item→ entity` |
+| ID mentioned in any section text | `section —mentions→ entity` |
 
-### Confidence routing (`confidence.py`)
+### Confidence routing (`rule_confidence.py`)
 
 After the rules run, every section is scored. The rules are trusted only for text they consumed. A section is **low-confidence** if anything else in it matches one of these:
 
@@ -310,7 +326,7 @@ For every input file:
 
 **`<key>`** is the document's own ID when it has a "Document ID" field (`brd-lh-001`), otherwise the file name (`ops-team-chat`). A second file with the same ID gets `-2`. An attachment's key is `<parent-key>-<file-name>`.
 
-**Vocabulary.** There are 36 page types and 45 relationship verbs, all defined in `docingest/vocabulary.yaml`:
+**Vocabulary.** There are 36 page types and 45 relationship verbs, all defined in `docingest/vocabulary/vocabulary.yaml`:
 
 - **Types:**
   - requirements (business, functional, non-functional), use cases, epics, user stories, features
@@ -358,7 +374,7 @@ Verification runs after every `ingest` (and on `verify`). Each check is `PASS`, 
 
 ## 9. Sample input
 
-`samples/inputs/` holds 11 documents about one fictional project (Project Lighthouse at Meridian Home Goods). They share people and systems, so cross-document merging can be checked. Regenerate them with `../.venv/bin/python samples/make_samples.py` (needs `requirements-dev.txt`).
+`sample_documents/` holds 11 documents about one fictional project (Project Lighthouse at Meridian Home Goods). They share people and systems, so cross-document merging can be checked. Regenerate them with `../.venv/bin/python tests/helpers/make_sample_documents.py` (needs `requirements-dev.txt`).
 
 | File | Format | What it contains | What it exercises |
 |---|---|---|---|
@@ -378,7 +394,7 @@ Verification runs after every `ingest` (and on `verify`). Each check is `PASS`, 
 
 ## 10. Sample output
 
-### Console (`./ingest.sh ingest samples/inputs/lighthouse_brd.md`)
+### Console (`./ingest.sh ingest sample_documents/lighthouse_brd.md`)
 
 ```
 [docingest] 1 document(s) to ingest into /home/ubuntu/docingest-brain
@@ -394,7 +410,7 @@ Verification runs after every `ingest` (and on `verify`). Each check is `PASS`, 
 [docingest] Report: .../docingest/work/reports/latest.md
 ```
 
-### Results for all samples (`./ingest.sh ingest samples/inputs`)
+### Results for all samples (`./ingest.sh ingest sample_documents`)
 
 | Input | Kind | Key | Sections | Pages | Chunks | Links | Low-confidence | Status | Main entities |
 |---|---|---|---|---|---|---|---|---|---|
@@ -469,7 +485,7 @@ section_index: 17
 char_start: 13701            # exact position in work/markdown/brd-lh-001.md
 char_end: 14771
 section_of:    ["docs/documents/brd-lh-001"]
-mentions_item: ["docs/risks/brd-lh-001/rk-01", "people/tom-brennan", "docs/objectives/brd-lh-001/bo-02", ...]
+mentions: ["docs/risks/brd-lh-001/rk-01", "people/tom-brennan", "docs/objectives/brd-lh-001/bo-02", ...]
 ```
 
 ### Graph traversal from a use case
@@ -621,80 +637,132 @@ claude mcp add gbrain -- ~/.bun/bin/gbrain serve --surface full   # register wit
 
 ---
 
-## 12. File reference
+## 12. Project layout
+
+Every folder and file in the repository, and what it is for. The run-time folders (`brain/`, and `work/` inside it) and the local settings file (`.env.local`) are not in git.
 
 ```
-docingest/
-  ingest.sh                 local runner
-  Dockerfile                container image
-  docker-entrypoint.sh      container entry point
-  requirements.txt          direct Python dependencies
-  requirements.lock         every Python dependency, pinned (container)
-  requirements-dev.txt      + reportlab, for generating samples
-  pyproject.toml            code style settings (ruff)
-  .dockerignore
-  README.md
-  NEXT_STEPS.md             open items and plans (EC2 checks, embeddings, adaptive schema, …)
-  docingest/                the Python package
-    __init__.py  __main__.py  cli.py  pipeline.py
-    convert.py  classify.py  extract.py  confidence.py  llm.py
-    mdutil.py  model.py  vocab.py  vocabulary.yaml
-    writer.py  state.py  gbrain.py  verify.py
-  samples/
-    make_samples.py         generates samples/inputs/
-    inputs/                 the 11 sample documents
-  work/                     generated at run time (not committed)
+docingest/                                     the repository
+├── setup.sh  ingest.sh  run_tests.sh          set up, run and test (see COMMANDS.md)
+├── Dockerfile  docker-entrypoint.sh           container image and its entry point
+├── requirements.txt  requirements.lock        Python dependencies; .lock pins every version for the image
+├── requirements-dev.txt                       test-only extra (reportlab, for the PDF sample)
+├── pyproject.toml                             code style (ruff)
+├── .gitignore  .dockerignore                  what git and the image leave out
+├── README.md  COMMANDS.md  NEXT_STEPS.md      this guide, the command guide, the plans
+├── docs/
+│   └── VOCABULARY.md                          every link verb and page type (generated from vocabulary.yaml)
+├── docingest/                                 the application (python -m docingest)
+│   ├── __init__.py  __main__.py               package and version number; the entry point
+│   ├── commands.py                            every command and its options (--brain, --work, ...)
+│   ├── ingestion/                             the pipeline: one file per step
+│   │   ├── pipeline.py                        runs the steps below for each file, then the shared steps
+│   │   ├── convert_to_markdown.py             1. any file format to markdown, plus a plain-text reference
+│   │   ├── normalize_headings.py              1. bold lines that stand for headings become real headings
+│   │   ├── detect_document_kind.py            2. BRD, PRD, SOW, email, transcript, ...
+│   │   ├── extract_with_rules.py              3. sections, entities and links, by rules
+│   │   ├── rule_confidence.py                 4. which sections the rules could not fully read
+│   │   ├── extract_with_ai.py                 5. optional AI pass on those sections (--llm)
+│   │   ├── write_pages.py                     6. page files with frontmatter, for gbrain to import
+│   │   ├── ingest_state.py                    what each document produced (re-runs, shared pages)
+│   │   ├── review_proposals.py                gaps the rules could not place -> proposals; decisions, apply, undo
+│   │   ├── review_ai.py                       optional AI suggestions for those proposals (--llm)
+│   │   └── litellm_proxy.py                   checks the LiteLLM proxy before embedding
+│   ├── evaluation/                            is the result right?
+│   │   ├── verification.py                    checks after every run: nothing lost, everything stored
+│   │   ├── embedding_checks.py                checks after embedding (+ semantic_search_questions.yaml)
+│   │   ├── answer_key_evaluation.py           `eval`: scores every stage against answer_keys/
+│   │   └── selftest.py                        `selftest`: unit tests, and the answer-key scores against the baseline
+│   ├── reporting/                             what happened, and for whom
+│   │   ├── recap.py                           the summary printed at the end of each run
+│   │   ├── run_history.py                     append-only record of every run, document and evaluation
+│   │   └── dashboard_page.py                  the static run-history page
+│   ├── vocabulary/                            page types and link verbs
+│   │   ├── vocabulary.yaml                    the single source of truth for the schema
+│   │   └── vocabulary_loader.py               loads it; builds the gbrain schema pack and docs/VOCABULARY.md
+│   └── utils/                                 shared by everything above
+│       ├── data_types.py                      Converted, Section, Table, Page, DocumentResult, ...
+│       ├── markdown_parsing.py                slugs, tokens, sections, tables
+│       └── gbrain_client.py                   gbrain commands and fast reads
+├── answer_keys/                               the expected result for each sample document
+│   ├── loan_origination_brd.md + .yaml        tuned documents: the document, then its key
+│   ├── expense_capture_prd.md + .yaml
+│   ├── field_service_brd.docx + .yaml
+│   ├── data_migration_sow.html + .yaml
+│   ├── baseline.json                          saved scores that `selftest --full` compares against
+│   └── holdout/                               three held-out documents, for measuring only (see its README)
+├── sample_documents/                          11 demo documents of one fictional project
+├── tests/                                     automated tests: python -m unittest (./run_tests.sh)
+│   ├── test_*.py                              one file per area (see the table below)
+│   └── helpers/                               test support: a fake proxy and the document generators
+└── brain/                                     created by the first run: the brain and its work/ folder
 ```
 
-### Top level
+Only `docingest/`, `answer_keys/`, `sample_documents/`, `tests/` and `docs/` are folders in the repository. Code is never more than two levels deep. `brain/` appears when you run the pipeline with the default `GBRAIN_HOME`.
+
+Imports always use the full path (`from docingest.ingestion.pipeline import Pipeline`), so a name tells you where the file is.
+
+### The `docingest/` package, file by file
 
 | File | What it does |
 |---|---|
-| `setup.sh`, `run_tests.sh`, `COMMANDS.md` | One-time setup, the test runner (fake LiteLLM proxy), and the command cheat-sheet |
-| `ingest.sh` | Local runner. Loads `.env.local`, puts Bun on `PATH`, defaults `GBRAIN_HOME` to `./brain` (work files go to `$GBRAIN_HOME/work`), then runs `python -m docingest` with `./.venv` (created by `setup.sh`). Passes all arguments through |
-| `Dockerfile` | Builds one image with Python 3.12, Bun 1.4.3, gbrain v0.60.281.0 (cloned and installed with a frozen lockfile), LibreOffice Writer (for `.doc`) and the Python packages from `requirements.lock`. Runs as a non-root user, with `/data/brain` and `/data/work` as volumes. Default command: `ingest /input` |
-| `docker-entrypoint.sh` | Creates the brain on first start (`gbrain init --pglite --no-embedding`) if `/data/brain` is empty, then runs `python -m docingest` with the container arguments |
-| `requirements.txt` | Direct Python dependencies, pinned |
-| `requirements.lock` | Every transitive dependency pinned for Linux and Python 3.12; used by the Docker build. Regenerate after editing `requirements.txt` (the command is at the top of the file) |
-| `requirements-dev.txt` | `requirements.txt` plus `reportlab` for `samples/make_samples.py` |
-| `.dockerignore` | Keeps `work/`, sample inputs and caches out of the image |
-| `pyproject.toml` | Code style: PEP 8 checked with ruff, 99-character lines, docstrings on public modules, classes and functions |
-| `NEXT_STEPS.md` | Open items and agreed plans: EC2 checks, Ubuntu, embeddings, adaptive schema, standard attributes, project grouping, gap analysis |
-
-### The `docingest/` package
-
-| File | What it does |
-|---|---|
-| `__init__.py` | Package version (`1.0.0`) |
+| `__init__.py` | Marks the package and holds its version number |
 | `__main__.py` | Lets the package run as `python -m docingest` |
-| `cli.py` | Command line: `ingest`, `plan`, `verify`, `convert`, `pack`, `purge`, and the global `--brain` / `--work` options. Checks for an API key when `--llm` is used, prints the verification summary, and sets the exit code |
-| `pipeline.py` | Runs a whole ingestion. Collects input files (recursively, skipping hidden, brain and work folders) and installs the schema pack. Then, for each file in turn: convert → classify → assign key → rule extraction → confidence routing → optional AI → save markdown, manifest and pages → `gbrain import`. Email attachments are queued as new documents. After all files: rebuilds shared entity pages, soft-deletes pages nothing produces any more, runs `gbrain extract links` and `schema sync`. Also writes the verification reports |
-| `convert.py` | Converts each format to markdown, and produces an independent plain-text extraction used to prove no words were lost. Contains the converters for DOCX, DOC (via LibreOffice), PDF (headings by font size, table detection, OCR warning), HTML, CSV/TSV/XLSX, PPTX, EML/MSG (headers table, body, saved attachments) and VTT/SRT (speakers). Also detects chat and transcript text by its line patterns |
-| `classify.py` | Picks the document kind: from the converter (email, transcript, chat, spreadsheet, presentation), otherwise by keyword score in headings and opening text against `document_kinds` in the vocabulary |
-| `extract.py` | Rule-based extraction. Splits sections and parses tables. Registers every ID-table row, choosing its type by ID prefix, then section heading, then `record`. Builds entity pages with attributes and links from column names. Reads `Field \| Value` document-control tables, approval tables, email participants and transcript speakers. Creates section pages with `mentions_item` links, finds undefined ID references, and collects shared entities |
-| `confidence.py` | Scores every section after rule extraction. Computes the residual: text the rules didn't consume, unmapped tables, long cells naming unlinked entities, undefined IDs. Marks the section `rules` (high confidence) or `ai` (low confidence) with reasons and rule coverage. Builds the reduced text sent to Claude and the token and cost estimates for `plan` |
-| `llm.py` | Optional Claude extraction. Builds the system prompt and JSON schema from the vocabulary and sends low-confidence sections (or all, with `--llm-all`), with known items in a cached block. Handles refusals, `max_tokens`, API errors and retries. Validates every returned item (verbatim evidence, known endpoints, verb target type), then adds accepted items as pages, links or shared-entity facts. Records tokens, cost and rejections |
-| `vocabulary.yaml` | **The single source of truth for the schema.** Defines page types (folder, gbrain primitive, document or global scope, ID prefixes, heading keywords, title columns, description), verbs (inverse, target type, column aliases, description), document-control field mappings and document-kind keywords. Edit this to extend the pipeline |
-| `vocab.py` | Loads `vocabulary.yaml` and answers lookups: type for an ID prefix, type for a heading, verb for a column name. Generates the gbrain schema pack (`doc-pack`) with a frontmatter-link rule for every type × verb, in the block-style YAML gbrain requires |
-| `mdutil.py` | Markdown helpers: slugs, word tokens, coverage, headings, the exact section splitter (by heading level, or by size for text without headings), pipe-table parser and table writer |
-| `model.py` | Shared data classes: `Converted`, `Section`, `Table`, `Page`, `GlobalContribution`, `DocumentResult` |
-| `writer.py` | Writes pages as markdown files with YAML frontmatter (scalars quoted, links as lists), one file per slug, replacing the document's previous output |
-| `state.py` | `work/state.json`: which key each source file has, which pages each document produced (to find stale ones), and what each document contributed to each shared entity. Merges contributions into shared pages in a stable order, and finds shared entities no document mentions any more |
-| `gbrain.py` | Talks to gbrain. `GBrain` runs CLI commands for writes (init, install and validate the pack, import, extract links, schema sync, delete, stats) and logs them to `work/logs/gbrain-cli.log`. `Reader` keeps one `gbrain serve` MCP session open for fast reads during verification (page, chunks, links, search) |
-| `verify.py` | All checks in [Verification](#8-verification). Compares manifests against what gbrain actually stored, computes chunk byte-range coverage, and renders the markdown and JSON reports |
+| `commands.py` | Every command (`ingest`, `review`, `plan`, `verify`, `convert`, `pack`, `vocab`, `purge`, `embed`, `embeddings-setup`, `doctor`, `eval`, `selftest`, `dashboard`) and the global `--brain` / `--work` options. Records each run in the run history and sets the exit code |
+| `ingestion/pipeline.py` | Runs a whole ingestion. Applies approved reviews, then for each file: convert → classify → assign key → rule extraction → rule confidence → optional AI → save markdown, manifest and pages → `gbrain import`. Email attachments are queued as new documents. After all files: rebuilds shared entity pages, removes pages nothing produces any more, writes graph edges, applies the rules' clear schema decisions (asks the AI for suggestions on the rest), verifies, and embeds |
+| `ingestion/convert_to_markdown.py` | Converts each format to markdown (DOCX, DOC, PDF, HTML, CSV/TSV/XLSX, PPTX, EML/MSG, VTT/SRT, text) plus an independent plain-text extraction used to prove no words were lost |
+| `ingestion/normalize_headings.py` | Turns bold-only lines (common in Word files) into real headings, when a document has fewer than two real ones. Runs inside the conversion step |
+| `ingestion/detect_document_kind.py` | Decides the document kind (BRD, PRD, SOW, email, transcript, ...) from the converter or keyword scores |
+| `ingestion/extract_with_rules.py` | Rule-based extraction: sections, tables, ID-keyed rows as entities, attributes and links from column names, document-control fields, approvals, email participants, transcript speakers, section pages with `mentions` links |
+| `ingestion/rule_confidence.py` | Scores each section after rule extraction and decides which go to the AI; token and cost estimates for `plan` |
+| `ingestion/extract_with_ai.py` | Optional Claude extraction (`--llm`) for low-confidence sections, constrained to the vocabulary, with verbatim-evidence checks |
+| `ingestion/write_pages.py` | Writes pages as markdown files with YAML frontmatter |
+| `ingestion/ingest_state.py` | `work/state.json`: document keys, the pages each document produced, contributions to shared entities |
+| `ingestion/review_proposals.py` | Schema gaps (an unknown ID prefix, a column with no verb) become proposals. Runs the rule checks, decides who settles each one, records reviewer decisions, applies them and undoes them (`review` command). Keeps the audit trail in `work/review/` |
+| `ingestion/review_ai.py` | Runs only with `--llm`. Asks Claude for a suggestion on each proposal. A suggestion is kept only if it quotes the rows and passes the same checks as a reviewer's decision; it never applies itself |
+| `ingestion/litellm_proxy.py` | Checks the LiteLLM proxy: lists models and embeds one word |
+| `evaluation/verification.py` | Every check in [Verification](#8-verification); writes `reports/latest.md` and `.json` |
+| `evaluation/embedding_checks.py` | The five embedding checks; questions in `semantic_search_questions.yaml` |
+| `evaluation/answer_key_evaluation.py` | `eval`: ingests each answer key's document into a throwaway brain and scores every stage |
+| `evaluation/selftest.py` | `selftest`: runs the unit tests (quick), or with `--full` every test plus the answer-key scores compared with `answer_keys/baseline.json` |
+| `reporting/recap.py` | The summary printed at the end of each run: per document, its content, checks, rule and AI results, and latest evaluation |
+| `reporting/run_history.py` | Appends runs, documents and evaluations to `work/run_history/*.jsonl` |
+| `reporting/dashboard_page.py` | Builds `work/reports/dashboard.html` from the run history |
+| `vocabulary/vocabulary.yaml` | **The single source of truth for the schema**: page types, link verbs, column aliases, document fields and kinds. Edit this to extend the pipeline |
+| `vocabulary/vocabulary_loader.py` | Loads the YAML, answers lookups (type for a prefix, verb for a column), checks consistency, generates the gbrain schema pack and `docs/VOCABULARY.md` |
+| `utils/data_types.py` | Shared data classes |
+| `utils/markdown_parsing.py` | Slugs, word tokens, coverage, headings, the section splitter, the pipe-table parser and writer |
+| `utils/gbrain_client.py` | `GBrain` runs gbrain commands (logged to `work/logs/gbrain-cli.log`); `Reader` keeps one `gbrain serve` session open for fast reads |
 
-### Samples
+### Tests, helpers, samples and answer keys
 
-| File | What it does |
+| Path | What it holds |
 |---|---|
-| `samples/make_samples.py` | Writes the sample documents into `samples/inputs/`: the DOCX copy of the BRD, the PRD as PDF (needs `reportlab`), the SOW as HTML, the email with CSV attachment, the transcript, chat, retro notes, CSV register, long handbook and the fake `.doc` |
-| `samples/inputs/` | The sample documents (see [Sample input](#9-sample-input)) |
+| `tests/test_markdown_parsing.py` | The word tokenizer, and turning bold lines into headings |
+| `tests/test_vocabulary.py` | The vocabulary is consistent, `docs/VOCABULARY.md` is current, and verbs are chosen by type |
+| `tests/test_list_extraction.py` | List items become entities; which lists the rules cover, and which go to the AI |
+| `tests/test_table_extraction.py` | Tables without IDs; cover, change-history and signature tables; document titles |
+| `tests/test_pdf_conversion.py` | PDF list markers and wrapped items, and that no words are lost (needs `reportlab`) |
+| `tests/test_embeddings.py` | The embedding setup against the fake proxy; the full ingest needs gbrain |
+| `tests/test_evaluation_and_run_history.py` | The scoring helpers, the loan BRD baseline, and the run history and dashboard (the full run needs gbrain) |
+| `tests/test_selftest.py` | What counts as a regression against the baseline |
+| `tests/test_recap.py` | The text of the end-of-run recap |
+| `tests/test_review.py` | Gaps, proposals, decision safeguards, AI suggestions (with a fake client), applying and undoing (the full run needs gbrain) |
+| `tests/helpers/fake_litellm_proxy.py` | A stand-in LiteLLM proxy, so embedding tests need no keys or network. Can also be run by hand on a port |
+| `tests/helpers/fake_proxy_search_questions.yaml` | Search questions the fake proxy can answer |
+| `tests/helpers/make_sample_documents.py` | Regenerates `sample_documents/` (DOCX, PDF, HTML, email, subtitles, chat, CSV, handbook and the legacy `.doc`) |
+| `tests/helpers/make_field_service_brd.py` | Regenerates `answer_keys/field_service_brd.docx` |
+| `tests/helpers/make_holdout_documents.py` | Regenerates the two held-out Word and PDF documents in `answer_keys/holdout/` |
+| `sample_documents/` | 11 demo documents (see [Sample input](#9-sample-input)): the BRD as markdown and as DOCX, the PRD as PDF, the SOW as HTML, an approval email, the steering-committee subtitles, a team chat, retro notes, a risk register (CSV), a long policy handbook, and a legacy `.doc` (needs LibreOffice) |
+| `answer_keys/` | Each `.yaml` is the result the pipeline should produce for the document beside it: its sections, tables, entities and links. `baseline.json` holds the saved scores |
+| `answer_keys/holdout/` | Held-out documents and keys, used only to measure. The rules for them are in its [README](answer_keys/holdout/README.md) |
+| `docs/VOCABULARY.md` | The generated reference of every link verb and page type |
 
 ---
 
 ## 13. Customizing
 
-**Add a page type, verb, ID prefix or column name.** Edit `docingest/vocabulary.yaml` and re-run `ingest`; the schema pack is regenerated and re-installed. Examples:
+**Add a page type, verb, ID prefix or column name.** Edit `docingest/vocabulary/vocabulary.yaml` and re-run `ingest`; the schema pack is regenerated and re-installed. Examples:
 
 ```yaml
 types:
@@ -726,7 +794,7 @@ verbs:
 
 Lower values route more sections: more accurate, more tokens.
 
-**Add an input format.** Add a converter function in `convert.py` that returns markdown plus reference text, and register the extension in `SUPPORTED`.
+**Add an input format.** Add a converter function in `docingest/ingestion/convert_to_markdown.py` that returns markdown plus reference text, and register the extension in `SUPPORTED`.
 
 **Re-running and updates.**
 - Re-ingesting is safe. Unchanged pages are skipped and changed pages are updated.
@@ -743,6 +811,15 @@ pip install ruff
 ruff check .          # lint: style, unused code, likely bugs, missing docstrings
 ruff format .         # format
 ```
+
+## Run history, dashboard and evaluation
+
+- Every run is recorded in `$GBRAIN_HOME/work/run_history/` (`runs.jsonl`, `documents.jsonl`): project (`--project`), team, who, input path, and for each document its tables, pages, chunks, links and checks.
+- `$GBRAIN_HOME/work/reports/dashboard.html` is rebuilt after each run: overall totals and one entry per document.
+- `python -m docingest eval` scores the pipeline against the answer keys in `answer_keys/` (precision, recall, F1 and accuracy for every stage) and writes `reports/eval-latest.md`.
+- `python -m docingest vocab` prints every verb and page type; `docs/VOCABULARY.md` is generated from it.
+
+See [COMMANDS.md](COMMANDS.md) sections 6 and 7.
 
 ## Running on a plain Linux or EC2 host (no Docker)
 
@@ -796,7 +873,7 @@ The container's exit code follows the same rule as locally, so it can gate a CI 
 - the package set runs the pipeline in a fresh Python 3.12 environment;
 - gbrain v0.60.281.0 and Bun 1.4.3 are the versions used locally.
 
-Build it once and run `ingest` on `samples/inputs` to confirm. Expect a `PASS`/`WARN` report with all 11 files, including `legacy_spec.doc`, which converts in the image because LibreOffice is installed.
+Build it once and run `ingest` on `sample_documents` to confirm. Expect a `PASS`/`WARN` report with all 11 files, including `legacy_spec.doc`, which converts in the image because LibreOffice is installed.
 
 ---
 

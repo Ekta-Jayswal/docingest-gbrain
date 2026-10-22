@@ -1,2 +1,2 @@
 -r requirements.txt
-reportlab==5.0.1           # samples/make_samples.py (PDF sample)
+reportlab==5.0.1           # tests/helpers/make_sample_documents.py (PDF sample)

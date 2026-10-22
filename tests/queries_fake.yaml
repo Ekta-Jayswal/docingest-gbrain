@@ -1,4 +1,0 @@
-# Semantic queries that only the fake proxy's synonym table can answer (see fake_litellm.py).
-queries:
-  - query: reimbursement original payment method once warehouse receives
-    expect: brd-lh-001/fr-006

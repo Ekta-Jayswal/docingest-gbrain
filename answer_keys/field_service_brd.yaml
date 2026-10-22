@@ -1,0 +1,119 @@
+# Answer key: ideal ingestion of the field service scheduling BRD (synthetic, Word .docx
+# with real heading styles). Regenerate the document with
+# tests/helpers/make_field_service_brd.py. Written from the document alone.
+
+document: field_service_brd.docx
+kind: brd
+title_contains: Field Service Scheduling
+document_attributes:
+  document_id: BRD-FSS-007
+  version: "0.9"
+  status: Draft for review
+
+sections:
+  - 1. Document Control
+  - 2. Purpose
+  - 3. Business Objectives
+  - 4. Stakeholders
+  - 5. Business Requirements
+  - 6. Functional Requirements
+  - 7. Systems
+  - 8. Assumptions and Risks
+  - 8.1 Assumptions
+  - 8.2 Risks
+  - 9. Glossary
+  - 10. Approval
+
+tables:
+  - {first_column: Field, becomes: document attributes}
+  - {first_column: ID, becomes: "entities: business_objective"}
+  - {first_column: ID, becomes: "entities: person"}
+  - {first_column: ID, becomes: "entities: business_requirement"}
+  - {first_column: ID, becomes: "entities: functional_requirement"}
+  - {first_column: ID, becomes: "entities: system"}
+  - {first_column: ID, becomes: "entities: assumption"}
+  - {first_column: ID, becomes: "entities: risk"}
+  - {first_column: Term, becomes: "entities: glossary_term"}
+  - {first_column: Approver, becomes: approvals}
+
+entities:
+  - {key: OBJ-1, type: business_objective, id: OBJ-1, attributes: {measure: Window of 2 hours or less}}
+  - {key: OBJ-2, type: business_objective, id: OBJ-2, attributes: {measure: 85% of jobs fixed on the first visit}}
+  - {key: OBJ-3, type: business_objective, id: OBJ-3, attributes: {measure: Scheduling time per job cut by half}}
+  - {key: p-osei, type: person, name: Daniel Osei, attributes: {job_title: Director of Customer Operations, department: Operations, raci: A}}
+  - {key: p-kowalski, type: person, name: Marta Kowalski, attributes: {job_title: Business Analyst, department: Transformation Office, raci: R}}
+  - {key: p-liu, type: person, name: Grace Liu, attributes: {job_title: Field Operations Manager, department: Operations, raci: C}}
+  - {key: p-rahimi, type: person, name: Ahmed Rahimi, attributes: {job_title: IT Applications Lead, department: Information Technology, raci: C}}
+  - {key: BR-001, type: business_requirement, id: BR-001}
+  - {key: BR-002, type: business_requirement, id: BR-002}
+  - {key: BR-003, type: business_requirement, id: BR-003}
+  - {key: BR-004, type: business_requirement, id: BR-004}
+  - {key: FR-001, type: functional_requirement, id: FR-001}
+  - {key: FR-002, type: functional_requirement, id: FR-002}
+  - {key: FR-003, type: functional_requirement, id: FR-003}
+  - {key: FR-004, type: functional_requirement, id: FR-004}
+  - {key: FR-005, type: functional_requirement, id: FR-005}
+  - {key: FR-006, type: functional_requirement, id: FR-006}
+  - {key: sys-workforce, type: system, name: WorkForce Planner}
+  - {key: sys-assettrack, type: system, name: AssetTrack}
+  - {key: sys-customerhub, type: system, name: CustomerHub}
+  - {key: AS-01, type: assumption, id: AS-01}
+  - {key: AS-02, type: assumption, id: AS-02}
+  - {key: RK-01, type: risk, id: RK-01, attributes: {likelihood: Medium, impact: High}}
+  - {key: RK-02, type: risk, id: RK-02, attributes: {likelihood: High, impact: Medium}}
+  - {key: gl-window, type: glossary_term, name: Appointment window}
+  - {key: gl-crew, type: glossary_term, name: Crew}
+  - {key: gl-first-visit, type: glossary_term, name: First-visit fix}
+
+links:
+  # Document control fields and the approval table.
+  - [document, authored_by, p-kowalski]
+  - [document, sponsored_by, p-osei]
+  - [p-osei, approved, document]
+  # Business requirements: Objective and Owner columns.
+  - [BR-001, supports, OBJ-1]
+  - [BR-002, supports, OBJ-2]
+  - [BR-003, supports, OBJ-3]
+  - [BR-004, supports, OBJ-1]
+  - [BR-001, owned_by, p-liu]
+  - [BR-002, owned_by, p-liu]
+  - [BR-003, owned_by, p-rahimi]
+  - [BR-004, owned_by, p-osei]
+  # Functional requirements: Business Requirement and System columns.
+  - [FR-001, implements, BR-001]
+  - [FR-002, implements, BR-001]
+  - [FR-003, implements, BR-002]
+  - [FR-004, implements, BR-003]
+  - [FR-005, implements, BR-003]
+  - [FR-006, implements, BR-004]
+  - [FR-001, uses_system, sys-customerhub]
+  - [FR-002, uses_system, sys-workforce]
+  - [FR-003, uses_system, sys-assettrack]
+  - [FR-004, uses_system, sys-workforce]
+  - [FR-005, uses_system, sys-workforce]
+  - [FR-006, uses_system, sys-customerhub]
+  # Systems table, Owner column.
+  - [sys-workforce, owned_by, p-rahimi]
+  - [sys-assettrack, owned_by, p-rahimi]
+  - [sys-customerhub, owned_by, p-osei]
+  # Assumptions: Related Requirements; risks: Affected Requirements.
+  - [AS-01, underpins, FR-003]
+  - [AS-02, underpins, FR-004]
+  - [AS-02, underpins, FR-005]
+  - [RK-01, threatens, BR-003]
+  - [RK-02, threatens, BR-002]
+  - [RK-02, threatens, FR-003]
+
+review_candidates:
+  - [RK-01, threatens, OBJ-3]
+  - [AS-01, depends_on, sys-assettrack]
+
+questions:
+  - {query: two-hour appointment window, expect: [BR-001, FR-001, gl-window]}
+  - {query: parts from the repair history, expect: [FR-003, BR-002]}
+  - {query: crew calls in sick, expect: [FR-005]}
+  - {query: GPS units every minute, expect: [AS-02]}
+  - {query: spreadsheet in parallel, expect: [RK-01]}
+  - {query: text message when the crew leaves, expect: [FR-006]}
+  - {query: first visit, expect: [OBJ-2, gl-first-visit]}
+  - {query: Field Operations Manager, expect: [p-liu]}

@@ -13,6 +13,8 @@ What testing taught us (changes to the plan below):
 
 Not yet known (check on EC2, see section 1): the proxy's exact model name, whether the URL needs `/v1`, and that a `.doc` file needs LibreOffice. `doctor` reports all of these.
 
+**Built on branch `feat/vocabulary-v2` (2026-10-21):** vocabulary v2 (48 verbs, 37 page types, `docs/VOCABULARY.md`), the run history and dashboard (`--project`, `--team`, `--submitted-by`), and `docingest eval` with the first answer key (`answer_keys/loan_origination_brd.yaml`). Baseline on that BRD: overall 58%; entities precision 100%, recall 38%; links F1 0%; sections F1 0%; attributes 95%; retrieval 67%. After heading normalization (`feat/heading-normalization`): overall 72%. After tables without IDs (`feat/tables-without-ids`): overall 84%; tables 100%, entities F1 90%, retrieval 100%. Four answer keys now. After links from types (`feat/links-from-types`): loan BRD 95%, Word BRD 100%, PRD 95%, SOW 84%; mean 93.5%. Still to build: IDs inside cells, tables without IDs and system links, and must raise these numbers; `tests/test_eval_and_ledger.py` holds the floors.
+
 The sections below are the plan as of 2026-10-17. Sections 1–4 are now mostly done or replaced by the status above.
 
 ## 1. Checks to run on the EC2 instance
@@ -122,7 +124,18 @@ Test plan: build and test against a fake proxy locally. The first real run is on
   - **Review channels to build first:** proposal files on the volume, `schema proposals / approve / reject` commands run as one-off containers, and decision files the next run applies. Exit code 2 = ingested with decisions pending (configurable).
   - **Later:** email notification (counts and IDs only, no document text), then Teams. A review web page is undecided, because it isn't known whether reviewers can reach EC2 from a browser.
 
-## 6. Adaptive schema: plan (not built)
+## 5b. Review system (built on `feat/review-system`, 2026-10-22)
+
+Gap detection, proposals, rule auto-approval, optional AI suggestions, reviewer commands, safeguards (refused-at-once checks, preview, two reviewers for risky decisions, rollback, revert, audit log) and the `schema gaps` / `schema review` verification rows. Guide: COMMANDS.md section 11; code in `ingestion/review_proposals.py` and `ingestion/review_ai.py`.
+
+Not built from section 6, on purpose for now:
+
+- **New verbs.** A column that fits no existing verb stays generic; a reviewer can map it to an existing verb, or reject. Proposing new verbs needs an inverse name and a from/to decision.
+- **Gaps for ID-less entity-like tables** and for people or system names in unmapped columns.
+- **Answer-key scores as a rollback guard.** Applied decisions only add to the vocabulary, so the guard runs verification on the affected documents; run `selftest --full` after approving a new type to compare scores.
+- **Email and Teams notification.** Open proposals are in `work/review/PENDING.md` and the exit code is 2.
+
+## 6. Adaptive schema: plan (partly built, see 5b)
 
 **Today:** unknown section types and columns lose no text, but their meaning becomes generic or wrong. Tested with a "Project Harbor" BRD:
 
@@ -157,16 +170,16 @@ None of these are flagged by the confidence check or by verification.
 
 | File | Change |
 |---|---|
-| `extract.py` | Record gaps at each fallback point |
-| `model.py` | `gaps` field on `DocumentResult` |
-| new `schema_evolution.py` | Gaps → proposals, scoring, apply or queue |
-| `vocab.py` | Merge the learned vocabulary, check clashes, bump the pack version |
-| `confidence.py` | Treat fallbacks as low confidence |
-| `llm.py` | Optional proposal fields, routed to review |
-| `pipeline.py` | Apply proposals, reinstall the pack, re-extract the document; queue the rest |
-| `state.py` | Map documents to pending proposals |
-| `cli.py` | `--schema-mode auto\|review\|off` and the `schema` commands |
-| `verify.py` | `schema gaps` check |
+| `ingestion/extract_with_rules.py` | Record gaps at each fallback point |
+| `utils/data_types.py` | `gaps` field on `DocumentResult` |
+| new `ingestion/schema_evolution.py` | Gaps → proposals, scoring, apply or queue |
+| `vocabulary/vocabulary_loader.py` | Merge the learned vocabulary, check clashes, bump the pack version |
+| `ingestion/rule_confidence.py` | Treat fallbacks as low confidence |
+| `ingestion/extract_with_ai.py` | Optional proposal fields, routed to review |
+| `ingestion/pipeline.py` | Apply proposals, reinstall the pack, re-extract the document; queue the rest |
+| `ingestion/ingest_state.py` | Map documents to pending proposals |
+| `commands.py` | `--schema-mode auto\|review\|off` and the `schema` commands |
+| `evaluation/verification.py` | `schema gaps` check |
 | `README.md` | New section |
 
 **Two fixes to make regardless:**
@@ -237,7 +250,7 @@ Open questions: start with branch 1 or go straight to branch 2? Will `--project`
 | Requirements | `FR-010` Supports `OBJ-2` | The requirement supports an objective, so `achieves` | `underpins` (**wrong**) |
 | Unknown type (`DM-01`) | `DM-01` Supports `FR-001` | Unclear | `underpins` (**wrong**) |
 
-Change: verbs like `underpins` get a `source` type; when the row's type does not match, use the generic `references` link ("true but vague, never specific but wrong"). The decision is in `extract.py` near the link-building code (about line 380).
+Change: verbs like `underpins` get a `source` type; when the row's type does not match, use the generic `references` link ("true but vague, never specific but wrong"). The decision is in `docingest/ingestion/extract_with_rules.py`, in `_entity_pages`.
 
 **Fix 2: report the fallbacks.** An unknown ID prefix (`DM-01`) becomes type `record`, and an unknown link column becomes a generic `references` link (or none). Nothing reports this today: verification passes and the confidence check looks only at prose. Change: record each fallback, mark those sections low-confidence (so `--llm` can look at them), and add a verification row such as:
 

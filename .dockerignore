@@ -1,5 +1,4 @@
 work/
-samples/inputs/
 **/__pycache__/
 *.pyc
 .git

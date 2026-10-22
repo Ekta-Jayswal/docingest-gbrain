@@ -1,0 +1,235 @@
+# Answer key: what an ideal ingestion of the Digital Loan Origination System BRD produces.
+#
+# It describes the target outcome under vocabulary v2 (docs/VOCABULARY.md), not what the
+# pipeline does today, so today's scores show the gap. Every entity and link here is stated
+# explicitly in the document; links that would need judgment are listed under
+# `review_candidates` and are not scored.
+#
+# Entities are matched by `id` (the document's own ID) or, when the document gives none,
+# by `name` (compared case-insensitively, ignoring punctuation). `key` is how links refer
+# to an entity; `document` is the BRD itself.
+
+document: loan_origination_brd.md
+kind: brd
+title_contains: Digital Loan Origination System
+document_attributes:
+  version: "1.0"
+  author: Business Analysis Office
+
+sections:
+  - 1. Document Control
+  - 1.1 Version History
+  - 1.2 Approvals
+  - 2. Executive Summary
+  - 3. Business Objectives & Background
+  - 3.1 Problem Statement (Current State)
+  - 3.2 Business Objectives
+  - 3.3 Alignment to Strategy
+  - 4. Project Scope
+  - 4.1 In Scope
+  - 4.2 Out of Scope
+  - 4.3 Assumptions, Constraints & Dependencies
+  - 5. Stakeholders
+  - 6. Future-State Business Process
+  - 7. Business Requirements
+  - 7.1 Applicant Experience
+  - 7.2 Processing & Decisioning
+  - 7.3 Compliance, Reporting & Administration
+  - 8. Non-Functional Requirements
+  - 9. Success Metrics & Acceptance Criteria
+  - 10. Key Business Risks
+  - 11. Glossary
+  - 12. Sign-off
+
+# Tables in document order: the first column's header and what the table should become.
+tables:
+  - {first_column: Version, becomes: document control}
+  - {first_column: Name / Role, becomes: approvals}
+  - {first_column: ID, becomes: "entities: business_objective"}
+  - {first_column: Category, becomes: "entities: assumption, constraint, dependency"}
+  - {first_column: Stakeholder, becomes: "entities: stakeholder"}
+  - {first_column: Step, becomes: "entities: process_step"}
+  - {first_column: Req ID, becomes: "entities: functional_requirement"}
+  - {first_column: Req ID, becomes: "entities: functional_requirement"}
+  - {first_column: Req ID, becomes: "entities: functional_requirement"}
+  - {first_column: Category, becomes: "entities: nonfunctional_requirement"}
+  - {first_column: Metric (KPI), becomes: "entities: kpi"}
+  - {first_column: ID, becomes: "entities: risk"}
+  - {first_column: Term, becomes: "entities: glossary_term"}
+
+entities:
+  # ---- business objectives (3.2) ----------------------------------------------
+  - {key: BO-1, type: business_objective, id: BO-1, attributes: {target: "≤ 48 hrs for 80% of standard applications"}}
+  - {key: BO-2, type: business_objective, id: BO-2, attributes: {target: "0 re-key steps; single point of entry"}}
+  - {key: BO-3, type: business_objective, id: BO-3, attributes: {target: "Reduce status-check calls by 60%"}}
+  - {key: BO-4, type: business_objective, id: BO-4, attributes: {target: "Live dashboard, ≤ 5 min data latency"}}
+  - {key: BO-5, type: business_objective, id: BO-5, attributes: {target: "100% of decisions with immutable audit trail"}}
+
+  # ---- functional requirements (7.1 to 7.3) -----------------------------------
+  - {key: FR-01, type: functional_requirement, id: FR-01, attributes: {priority: Must}}
+  - {key: FR-02, type: functional_requirement, id: FR-02, attributes: {priority: Must}}
+  - {key: FR-03, type: functional_requirement, id: FR-03, attributes: {priority: Must}}
+  - {key: FR-04, type: functional_requirement, id: FR-04, attributes: {priority: Should}}
+  - {key: FR-05, type: functional_requirement, id: FR-05, attributes: {priority: Could}}
+  - {key: FR-06, type: functional_requirement, id: FR-06, attributes: {priority: Must}}
+  - {key: FR-07, type: functional_requirement, id: FR-07, attributes: {priority: Must}}
+  - {key: FR-08, type: functional_requirement, id: FR-08, attributes: {priority: Must}}
+  - {key: FR-09, type: functional_requirement, id: FR-09, attributes: {priority: Must}}
+  - {key: FR-10, type: functional_requirement, id: FR-10, attributes: {priority: Should}}
+  - {key: FR-11, type: functional_requirement, id: FR-11, attributes: {priority: Must}}
+  - {key: FR-12, type: functional_requirement, id: FR-12, attributes: {priority: Must}}
+  - {key: FR-13, type: functional_requirement, id: FR-13, attributes: {priority: Must}}
+  - {key: FR-14, type: functional_requirement, id: FR-14, attributes: {priority: Should}}
+  - {key: FR-15, type: functional_requirement, id: FR-15, attributes: {priority: Could}}
+
+  # ---- non-functional requirements (8) ----------------------------------------
+  - {key: NFR-01, type: nonfunctional_requirement, id: NFR-01, attributes: {category: Performance}}
+  - {key: NFR-02, type: nonfunctional_requirement, id: NFR-02, attributes: {category: Availability}}
+  - {key: NFR-03, type: nonfunctional_requirement, id: NFR-03, attributes: {category: Scalability}}
+  - {key: NFR-04, type: nonfunctional_requirement, id: NFR-04, attributes: {category: Security}}
+  - {key: NFR-05, type: nonfunctional_requirement, id: NFR-05, attributes: {category: Privacy}}
+  - {key: NFR-06, type: nonfunctional_requirement, id: NFR-06, attributes: {category: Usability}}
+  - {key: NFR-07, type: nonfunctional_requirement, id: NFR-07, attributes: {category: Auditability}}
+  - {key: NFR-08, type: nonfunctional_requirement, id: NFR-08, attributes: {category: Recoverability}}
+
+  # ---- risks (10) -------------------------------------------------------------
+  - {key: RK-1, type: risk, id: RK-1, attributes: {rating: High, mitigation: "Early vendor test access; contractual SLAs."}}
+  - {key: RK-2, type: risk, id: RK-2, attributes: {rating: High, mitigation: "Compliance review + periodic bias testing before enablement."}}
+  - {key: RK-3, type: risk, id: RK-3, attributes: {rating: Medium, mitigation: "Early involvement, training, phased rollout."}}
+  - {key: RK-4, type: risk, id: RK-4, attributes: {rating: Medium, mitigation: "Reconciliation checks; parallel-run validation."}}
+  - {key: RK-5, type: risk, id: RK-5, attributes: {rating: Medium, mitigation: "Change-control board; documented scope baseline."}}
+
+  # ---- success metrics (9) ----------------------------------------------------
+  - {key: kpi-cycle-time, type: kpi, name: Application-to-decision cycle time, attributes: {baseline: 9 business days, target: "≤ 48 hrs (80% of apps)"}}
+  - {key: kpi-rekeying, type: kpi, name: Manual re-keying steps per application, attributes: {baseline: "3", target: "0"}}
+  - {key: kpi-status-calls, type: kpi, name: Status-check calls per application, attributes: {baseline: "2.3", target: "≤ 0.9"}}
+  - {key: kpi-mobile, type: kpi, name: Applications completed on mobile, attributes: {baseline: 0%, target: "≥ 40%"}}
+  - {key: kpi-audit-trail, type: kpi, name: Decisions with complete audit trail, attributes: {baseline: "~60% (manual)", target: 100%}}
+  - {key: kpi-straight-through, type: kpi, name: Straight-through (auto-decisioned) rate, attributes: {baseline: 0%, target: "≥ 55%"}}
+
+  # ---- future-state process (6) -----------------------------------------------
+  - {key: step-1, type: process_step, name: Apply, attributes: {step: "1", automation: automated}}
+  - {key: step-2, type: process_step, name: Verify Identity, attributes: {step: "2", automation: automated}}
+  - {key: step-3, type: process_step, name: Upload Documents, attributes: {step: "3", automation: automated}}
+  - {key: step-4, type: process_step, name: Credit Pull, attributes: {step: "4", automation: automated}}
+  - {key: step-5, type: process_step, name: Auto-Decision, attributes: {step: "5", automation: automated}}
+  - {key: step-6, type: process_step, name: Manual Review, attributes: {step: "6", automation: manual}}
+  - {key: step-7, type: process_step, name: Offer & e-Sign, attributes: {step: "7", automation: automated}}
+  - {key: step-8, type: process_step, name: Fund & Handoff, attributes: {step: "8", automation: automated}}
+
+  # ---- systems (4.1 "Integrations:") ------------------------------------------
+  - {key: sys-core-banking, type: system, name: core banking system}
+  - {key: sys-credit-bureau, type: system, name: credit bureau}
+  - {key: sys-kyc, type: system, name: identity/KYC verification service}
+  - {key: sys-esignature, type: system, name: e-signature}
+
+  # ---- stakeholders (5) -------------------------------------------------------
+  - {key: sh-sponsor, type: stakeholder, name: Business Sponsor (VP Retail Lending), attributes: {interest_role: Owns business outcome and funding}}
+  - {key: sh-applicants, type: stakeholder, name: Loan Applicants (customers), attributes: {interest_role: End users of the self-service portal}}
+  - {key: sh-loan-officers, type: stakeholder, name: Loan Officers, attributes: {interest_role: Front-line processing}}
+  - {key: sh-underwriters, type: stakeholder, name: Underwriters, attributes: {interest_role: Credit assessment & decisioning}}
+  - {key: sh-compliance, type: stakeholder, name: Compliance & Risk, attributes: {interest_role: Regulatory adherence}}
+  - {key: sh-it, type: stakeholder, name: IT / Platform Team, attributes: {interest_role: "Build, integrate, operate"}}
+  - {key: sh-executives, type: stakeholder, name: Executive Management, attributes: {interest_role: Strategic oversight}}
+
+  # ---- people and organization (cover page, 1.1, 1.2, 12) ---------------------
+  - {key: p-marchetti, type: person, name: D. Marchetti, attributes: {job_title: "VP, Retail Lending"}}
+  - {key: p-nguyen, type: person, name: A. Nguyen, attributes: {job_title: Head of Compliance}}
+  - {key: p-patel, type: person, name: R. Patel, attributes: {job_title: IT Program Director}}
+  - {key: p-fisher, type: person, name: L. Fisher, attributes: {job_title: Chief Risk Officer}}
+  - {key: p-okafor, type: person, name: S. Okafor}
+  - {key: org-meridian, type: organization, name: Meridian Community Bank}
+
+  # ---- assumptions, constraints, dependencies (4.3) ---------------------------
+  - {key: as-1, type: assumption, name: The credit bureau and KYC vendors expose stable REST APIs available in a test environment by project start.}
+  - {key: as-2, type: assumption, name: Existing product/pricing rules can be expressed as deterministic decision rules.}
+  - {key: con-1, type: constraint, name: "Solution must comply with fair-lending regulations, data-privacy law, and internal security standards."}
+  - {key: con-2, type: constraint, name: Go-live must avoid the November–December fiscal close freeze period.}
+  - {key: dep-1, type: dependency, name: Core banking API enhancements owned by the Platform team must be delivered before integration testing.}
+  - {key: dep-2, type: dependency, name: Compliance must approve the automated decisioning logic before it can be enabled in production.}
+
+  # ---- scope (4.1, 4.2) -------------------------------------------------------
+  - {key: sc-in-1, type: scope_item, name: "Online application intake for personal, auto, and home-equity loans (web and mobile-responsive).", attributes: {scope: in}}
+  - {key: sc-in-2, type: scope_item, name: Secure document upload and applicant status portal., attributes: {scope: in}}
+  - {key: sc-in-3, type: scope_item, name: "Unified processing workflow for loan officers, underwriters, and compliance reviewers.", attributes: {scope: in}}
+  - {key: sc-in-4, type: scope_item, name: "Integrations: core banking system, credit bureau, identity/KYC verification service, e-signature.", attributes: {scope: in}}
+  - {key: sc-in-5, type: scope_item, name: "Automated decisioning rules engine for standard applications, with manual override for exceptions.", attributes: {scope: in}}
+  - {key: sc-in-6, type: scope_item, name: Management reporting dashboard and immutable audit logging., attributes: {scope: in}}
+  - {key: sc-out-1, type: scope_item, name: Commercial and small-business lending products (candidate for a future phase)., attributes: {scope: out}}
+  - {key: sc-out-2, type: scope_item, name: Loan servicing and repayment collection after funding — remains in the existing servicing platform., attributes: {scope: out}}
+  - {key: sc-out-3, type: scope_item, name: "Replacement of the core banking system itself; DLOS integrates with, but does not replace, it.", attributes: {scope: out}}
+  - {key: sc-out-4, type: scope_item, name: Marketing / lead-generation website functionality., attributes: {scope: out}}
+
+  # ---- glossary (11) ----------------------------------------------------------
+  - {key: gl-brd, type: glossary_term, name: BRD}
+  - {key: gl-dlos, type: glossary_term, name: DLOS}
+  - {key: gl-kyc, type: glossary_term, name: KYC}
+  - {key: gl-stp, type: glossary_term, name: Straight-through processing}
+  - {key: gl-moscow, type: glossary_term, name: MoSCoW}
+  - {key: gl-rpo-rto, type: glossary_term, name: RPO / RTO}
+
+# Links stated explicitly in the text. [from, verb, to] using entity keys.
+links:
+  # Each FR row ends with the objective it serves: "(BO-1)".
+  - [FR-01, supports, BO-1]
+  - [FR-02, supports, BO-2]
+  - [FR-03, supports, BO-3]
+  - [FR-04, supports, BO-3]
+  - [FR-05, supports, BO-1]
+  - [FR-06, supports, BO-2]
+  - [FR-07, supports, BO-1]
+  - [FR-08, supports, BO-1]
+  - [FR-09, supports, BO-5]
+  - [FR-10, supports, BO-1]
+  - [FR-11, supports, BO-5]
+  - [FR-12, supports, BO-4]
+  - [FR-13, supports, BO-5]
+  - [FR-14, supports, BO-5]
+  - [FR-15, supports, BO-5]
+  # A row that names a system.
+  - [FR-07, uses_system, sys-credit-bureau]
+  - [step-2, uses_system, sys-kyc]
+  - [step-4, uses_system, sys-credit-bureau]
+  - [step-7, uses_system, sys-esignature]
+  - [step-8, uses_system, sys-core-banking]
+  # The order of the Step table.
+  - [step-2, follows, step-1]
+  - [step-3, follows, step-2]
+  - [step-4, follows, step-3]
+  - [step-5, follows, step-4]
+  - [step-6, follows, step-5]
+  - [step-7, follows, step-6]
+  - [step-8, follows, step-7]
+  # Cover page and approvals table.
+  - [document, issued_by, org-meridian]
+  - [document, sponsored_by, p-marchetti]
+
+# Likely links the text does not state outright. Not scored; they belong in the review queue.
+review_candidates:
+  - [kpi-cycle-time, measures, BO-1]
+  - [kpi-rekeying, measures, BO-2]
+  - [kpi-status-calls, measures, BO-3]
+  - [kpi-audit-trail, measures, BO-5]
+  - [kpi-straight-through, measures, BO-1]
+  - [step-1, performed_by, sh-applicants]
+  - [step-3, performed_by, sh-applicants]
+  - [step-6, performed_by, sh-underwriters]
+  - [dep-1, depends_on, sys-core-banking]
+  - [RK-1, threatens, FR-07]
+  - [RK-2, threatens, FR-08]
+
+# Search questions: the right page must come back in the top 5. `expect` lists acceptable
+# entity keys; `section:<heading>` accepts that section's page.
+questions:
+  - {query: credit bureau integration, expect: [FR-07, sys-credit-bureau, step-4]}
+  - {query: fiscal close freeze, expect: [con-2, "section:4.3 Assumptions, Constraints & Dependencies"]}
+  - {query: WCAG accessibility, expect: [NFR-06]}
+  - {query: fair-lending bias, expect: [RK-2]}
+  - {query: save a draft and resume later, expect: [FR-05]}
+  - {query: tamper-evident audit logs, expect: [NFR-07]}
+  - {query: Know Your Customer, expect: [gl-kyc, sys-kyc]}
+  - {query: parallel-run validation, expect: [RK-4]}
+  - {query: Digital-First Member Experience, expect: ["section:3.3 Alignment to Strategy"]}
+  - {query: straight-through rate, expect: [kpi-straight-through, gl-stp]}
+  - {query: underwriter override justification, expect: [FR-09]}
+  - {query: recovery point objective, expect: [NFR-08, gl-rpo-rto]}

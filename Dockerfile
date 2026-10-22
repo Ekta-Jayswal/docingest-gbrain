@@ -38,6 +38,9 @@ WORKDIR /app
 COPY requirements.txt requirements.lock ./
 RUN pip install --no-cache-dir -r requirements.lock
 COPY docingest ./docingest
+COPY answer_keys ./answer_keys
+COPY tests ./tests
+COPY sample_documents ./sample_documents
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 RUN useradd --create-home --uid 1000 app \
