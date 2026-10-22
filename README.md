@@ -127,6 +127,7 @@ export GBRAIN_HOME="$HOME/docingest-brain"
 | `GBRAIN_HOME` | `./brain` (set by `ingest.sh`) | Brain directory; the database lives in `$GBRAIN_HOME/.gbrain` |
 | `DOCINGEST_WORK` | `$GBRAIN_HOME/work` | Working directory for generated pages, manifests, state and reports |
 | `LITELLM_BASE_URL`, `LITELLM_API_KEY` | unset | The LiteLLM proxy address (with `/v1`) and key; needed for `--llm` / `--llm-all` and embeddings |
+| `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` | `text-embedding-3-small`, `1536` | Embedding model name as the proxy lists it, and its vector width. Must match the brain's width |
 | `LLM_MODEL` | `gpt-5-mini-ai` | Chat model name the proxy offers, for the AI steps |
 | `GBRAIN_BIN` | `gbrain` on `PATH`, then `~/.bun/bin/gbrain` | Override the gbrain executable |
 
