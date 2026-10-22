@@ -4,7 +4,6 @@
 # regenerate it after editing this file (command at the top of requirements.lock).
 # Not installable with pip, provided by the Dockerfile: gbrain v0.60.281.0 with Bun 1.4.3,
 # and LibreOffice (only for legacy .doc files).
-anthropic==1.15.0          # optional AI extraction (--llm)
 beautifulsoup4==4.15.0     # HTML parsing
 extract-msg==0.56.1        # Outlook .msg email
 mammoth==1.13.0            # .docx -> HTML

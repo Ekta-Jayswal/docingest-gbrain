@@ -3,7 +3,6 @@
 #   uv pip compile requirements.txt --python-version 3.12 --python-platform x86_64-manylinux_2_28
 # Regenerate after changing requirements.txt.
 annotated-types==0.8.0
-anthropic==1.15.0
 anyio==4.15.1
 attrs==26.1.0
 beautifulsoup4==4.15.0

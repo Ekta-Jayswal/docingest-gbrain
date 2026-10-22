@@ -18,7 +18,7 @@ For each document it:
 4. imports everything into gbrain, chunked and without embeddings,
 5. verifies that nothing was lost.
 
-You can pass one file or a whole folder; the files are processed one after another. Extraction is rule-based first. An optional AI pass (Claude) reads only the sections the rules could not fully handle.
+You can pass one file or a whole folder; the files are processed one after another. Extraction is rule-based first. An optional AI pass (a model behind your LiteLLM proxy) reads only the sections the rules could not fully handle.
 
 ## Contents
 
@@ -73,7 +73,7 @@ The exit code is `0` when every file converted and every check passed. It is `1`
 | gbrain | v0.60.281.0 | importing, linking, verification | `git clone` + `bun install` (below) |
 | Bun | 1.4.3 | running gbrain | https://bun.sh |
 | LibreOffice (`soffice`) | any recent | legacy `.doc` files only | OS package manager; included in the Docker image |
-| `ANTHROPIC_API_KEY` | — | `--llm` / `--llm-all` only | Claude Console |
+| `LITELLM_BASE_URL`, `LITELLM_API_KEY` | — | `--llm` / `--llm-all` and embeddings | Your LiteLLM proxy, set in `.env.local` |
 
 ### Python dependencies
 
@@ -84,7 +84,6 @@ There are two dependency files:
 
 | Package | Used for |
 |---|---|
-| `anthropic` | AI extraction (`--llm`) |
 | `beautifulsoup4`, `markdownify` | HTML → markdown |
 | `mammoth`, `python-docx` | `.docx` → markdown, plus an independent text extraction for the conversion check |
 | `pdfplumber` | PDF text, headings (by font size) and tables |
@@ -127,7 +126,8 @@ export GBRAIN_HOME="$HOME/docingest-brain"
 |---|---|---|
 | `GBRAIN_HOME` | `./brain` (set by `ingest.sh`) | Brain directory; the database lives in `$GBRAIN_HOME/.gbrain` |
 | `DOCINGEST_WORK` | `$GBRAIN_HOME/work` | Working directory for generated pages, manifests, state and reports |
-| `ANTHROPIC_API_KEY` | unset | Needed only for `--llm` / `--llm-all` |
+| `LITELLM_BASE_URL`, `LITELLM_API_KEY` | unset | The LiteLLM proxy address (with `/v1`) and key; needed for `--llm` / `--llm-all` and embeddings |
+| `LLM_MODEL` | `gpt-5-mini-ai` | Chat model name the proxy offers, for the AI steps |
 | `GBRAIN_BIN` | `gbrain` on `PATH`, then `~/.bun/bin/gbrain` | Override the gbrain executable |
 
 The global options `--brain <dir>` and `--work <dir>` override the first two variables.
@@ -144,7 +144,7 @@ The global options `--brain <dir>` and `--work <dir>` override the first two var
  2. classify     ingestion/detect_document_kind.py      brd / prd / sow / email / transcript / chat / ... 
  3. extract      ingestion/extract_with_rules.py    sections, entity pages, shared entities, typed links (rules)
  4. route        ingestion/rule_confidence.py    per section: fully covered by rules, or low-confidence?
- 5. AI (opt.)    ingestion/extract_with_ai.py      Claude reads only the low-confidence sections (--llm)
+ 5. AI (opt.)    ingestion/extract_with_ai.py      the model reads only the low-confidence sections (--llm)
  6. write        ingestion/write_pages.py           one markdown file per page, with frontmatter links
  7. import       utils/gbrain_client.py                     gbrain import --no-embed  (pages are chunked here)
         ▼
@@ -173,9 +173,9 @@ Run commands through `./ingest.sh <command>` locally, or `docker run … docinge
 
 | Option | Effect |
 |---|---|
-| `--llm` | After rule extraction, send only low-confidence sections to Claude (`claude-opus-5-5`). Needs `ANTHROPIC_API_KEY` |
-| `--llm-all` | Send every section to Claude, not only low-confidence ones |
-| `--llm-effort low\|medium\|high\|xhigh\|max` | Claude effort level (default `medium`) |
+| `--llm` | After rule extraction, send only low-confidence sections to the model behind the LiteLLM proxy (`LLM_MODEL`, default `gpt-5-mini-ai`). Needs `LITELLM_BASE_URL` and `LITELLM_API_KEY` |
+| `--llm-all` | Send every section to the model, not only low-confidence ones |
+| `--llm-effort low\|medium\|high\|xhigh\|max` | Accepted for compatibility; the LiteLLM client does not use it |
 | `--kind brd` | Force the document kind for the given files instead of detecting it |
 | `--no-verify` | Skip verification after ingesting |
 | `--search-checks N` | Search-check at most N sections per document (default `0` = all) |
@@ -203,7 +203,7 @@ Approved additions live in `work/vocabulary.learned.yaml`. Full guide: COMMANDS.
 ./ingest.sh plan sample_documents -v      # every section, with its rule coverage
 ```
 
-`plan` converts and extracts in memory, then prints which sections the rules fully cover and which would go to Claude, with the reasons. It also estimates the tokens and cost of `--llm` and `--llm-all`. It needs no API key and writes nothing.
+`plan` converts and extracts in memory, then prints which sections the rules fully cover and which would go to the model, with the reasons. It also estimates the tokens and cost of `--llm` and `--llm-all`. It needs no API key and writes nothing.
 
 ### `verify [key ...]`: re-run verification
 
@@ -305,7 +305,7 @@ A section counts as high-confidence only when the rules can be shown to have con
 
 How the AI step stays accurate and cheap:
 
-- **Constrained output.** Claude's output must match a JSON schema whose types and verbs come from `vocabulary.yaml`.
+- **Constrained output.** The model's output must match a JSON schema whose types and verbs come from `vocabulary.yaml`.
 - **Caching.** The document's rule-extracted items are sent once, in a cached block that every section reuses.
 - **Validation.** Each AI entity and relationship must quote the original section **verbatim**, point at items that exist, and use a verb whose target type fits. Anything else is rejected and listed in the report.
 
@@ -715,11 +715,11 @@ Imports always use the full path (`from docingest.ingestion.pipeline import Pipe
 | `ingestion/detect_document_kind.py` | Decides the document kind (BRD, PRD, SOW, email, transcript, ...) from the converter or keyword scores |
 | `ingestion/extract_with_rules.py` | Rule-based extraction: sections, tables, ID-keyed rows as entities, attributes and links from column names, document-control fields, approvals, email participants, transcript speakers, section pages with `mentions` links |
 | `ingestion/rule_confidence.py` | Scores each section after rule extraction and decides which go to the AI; token and cost estimates for `plan` |
-| `ingestion/extract_with_ai.py` | Optional Claude extraction (`--llm`) for low-confidence sections, constrained to the vocabulary, with verbatim-evidence checks |
+| `ingestion/extract_with_ai.py` | Optional AI extraction (`--llm`) for low-confidence sections, constrained to the vocabulary, with verbatim-evidence checks |
 | `ingestion/write_pages.py` | Writes pages as markdown files with YAML frontmatter |
 | `ingestion/ingest_state.py` | `work/state.json`: document keys, the pages each document produced, contributions to shared entities |
 | `ingestion/review_proposals.py` | Schema gaps (an unknown ID prefix, a column with no verb) become proposals. Runs the rule checks, decides who settles each one, records reviewer decisions, applies them and undoes them (`review` command). Keeps the audit trail in `work/review/` |
-| `ingestion/review_ai.py` | Runs only with `--llm`. Asks Claude for a suggestion on each proposal. A suggestion is kept only if it quotes the rows and passes the same checks as a reviewer's decision; it never applies itself |
+| `ingestion/review_ai.py` | Runs only with `--llm`. Asks the model for a suggestion on each proposal. A suggestion is kept only if it quotes the rows and passes the same checks as a reviewer's decision; it never applies itself |
 | `ingestion/litellm_proxy.py` | Checks the LiteLLM proxy: lists models and embeds one word |
 | `evaluation/verification.py` | Every check in [Verification](#8-verification); writes `reports/latest.md` and `.json` |
 | `evaluation/embedding_checks.py` | The five embedding checks; questions in `semantic_search_questions.yaml` |
@@ -877,7 +877,7 @@ docker run --rm \
   docingest ingest /input
 
 # With AI extraction
-docker run --rm -e ANTHROPIC_API_KEY \
+docker run --rm -e LITELLM_BASE_URL -e LITELLM_API_KEY \
   -v "$PWD/inputs:/input:ro" -v docingest-brain:/data/brain -v docingest-work:/data/work \
   docingest ingest /input --llm
 
@@ -913,7 +913,7 @@ Build it once and run `ingest` on `sample_documents` to confirm. Expect a `PASS`
 | `gbrain: command not found` | Bun's bin folder isn't on `PATH`: `export PATH="$HOME/.bun/bin:$PATH"` (or open a new terminal; it's in `~/.zshrc`). The venv doesn't provide gbrain |
 | `Legacy .doc needs LibreOffice` | Install LibreOffice (`brew install --cask libreoffice`), save the file as `.docx`, or use the Docker image |
 | `conversion FAIL … needs OCR` | The PDF is a scan with no text layer. OCR it first (for example with `ocrmypdf`) |
-| `--llm needs ANTHROPIC_API_KEY` | Export the key, or run without `--llm` (rules only) |
+| `--llm` says `LITELLM_BASE_URL and LITELLM_API_KEY must be set` | Put both in `.env.local` (no leading `#`) and run through `./ingest.sh`, or run without `--llm` (rules only) |
 | `references WARN` | An ID is mentioned but defined in another document (for example `US-04` in the chat). Cross-document ID references are reported, not linked |
 | `pip install` fails building `cryptography` on an Intel Mac | Use `pip install --prefer-binary -r requirements.txt`; recent `cryptography` releases have no Intel-macOS wheel |
 | A check fails after editing pages by hand in gbrain | Verification compares the brain with what the pipeline wrote; re-run `ingest` to restore, or expect the difference |

@@ -30,7 +30,7 @@ LITELLM_API_KEY=your-key
 ./ingest.sh doctor
 ```
 
-Prints PASS / WARN / FAIL / INFO per item: Python, packages, gbrain, bun, LibreOffice, brain folder, LiteLLM proxy (lists its models and embeds one word), Claude key. Fix every FAIL before going on. The messages say what to do.
+Prints PASS / WARN / FAIL / INFO per item: Python, packages, gbrain, bun, LibreOffice, brain folder, LiteLLM proxy (lists its models and embeds one word), LLM proxy for `--llm`. Fix every FAIL before going on. The messages say what to do.
 
 ## 3. Ingest
 
