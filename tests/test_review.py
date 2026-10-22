@@ -225,25 +225,15 @@ class SafeguardTest(unittest.TestCase):
 
 # Stands in for the AI client. It returns one fixed answer, so the tests never call the API.
 class FakeClient:
-    """Stands in for the Anthropic client: returns one canned structured answer."""
+    """Stands in for the chat client: returns one canned structured answer."""
 
     # Keep the answer to return.
     def __init__(self, answer: dict):
-        self.beta = self
-        self.messages = self
         self.answer = answer
 
-    # Return a reply shaped like the real API's reply, with the answer as its text.
-    def create(self, **_):
-        # One text block of the reply.
-        class Block:
-            type, text = "text", json.dumps(self.answer)
-
-        # The reply: a list of blocks.
-        class Resp:
-            content = [Block()]
-
-        return Resp()
+    # Return the canned answer as JSON text, the way the proxy's reply would carry it.
+    def complete(self, system, user, schema, name="answer"):
+        return json.dumps(self.answer), {"input": 0, "output": 0, "cache_read": 0}
 
 
 # The AI's suggestions are kept only when they quote the rows and pass the checks. They are never

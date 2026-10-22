@@ -76,7 +76,7 @@ def cmd_ingest(args) -> int:
     # The AI step needs an API key. Stop here, before any work starts, rather than failing partway
     # through.
     if args.llm and not extract_with_ai.credentials_available():
-        sys.exit("--llm needs ANTHROPIC_API_KEY (or ANTHROPIC_AUTH_TOKEN) in the environment")
+        sys.exit("--llm needs LITELLM_BASE_URL and LITELLM_API_KEY in .env.local")
     source = Path(args.path).resolve()
     if not source.exists():
         sys.exit(f"No such file or directory: {source}")
@@ -445,7 +445,6 @@ def cmd_doctor(args) -> int:
     missing = []
     # The Python packages the tool imports. A missing one means setup.sh has not been run.
     for mod in (
-        "anthropic",
         "bs4",
         "markdownify",
         "mammoth",
@@ -520,7 +519,7 @@ def cmd_doctor(args) -> int:
         add("INFO", "litellm proxy", "LITELLM_BASE_URL not set (only needed for embeddings)")
     add(
         "INFO",
-        "claude api key",
+        "llm proxy (--llm)",
         "set (--llm possible)"
         if extract_with_ai.credentials_available()
         else "not set (rule-only ingestion; fine)",
@@ -783,7 +782,7 @@ def main(argv: list[str] | None = None) -> int:
         "--llm",
         action="store_true",
         help="Send low-confidence sections to Claude after rule extraction "
-        "(needs ANTHROPIC_API_KEY)",
+        "(needs LITELLM_BASE_URL and LITELLM_API_KEY)",
     )
     p.add_argument(
         "--llm-all",
