@@ -96,7 +96,7 @@ class EndToEndTest(unittest.TestCase):
         page = (work / "reports" / "dashboard.html").read_text()
         self.assertIn("loan_origination_brd.md", page)
         self.assertIn("dlos", page)
-        self.assertIn("docingest run history", dashboard_page.render(work))
+        self.assertIn("DocIngest Dashboard", dashboard_page.render(work))
 
 
 if __name__ == "__main__":

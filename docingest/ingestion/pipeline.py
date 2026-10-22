@@ -14,6 +14,7 @@ from collections import deque
 from dataclasses import asdict
 from pathlib import Path
 
+from docingest.utils import clock
 from docingest.evaluation import embedding_checks
 
 from docingest.ingestion import extract_with_ai
@@ -29,6 +30,7 @@ from docingest.ingestion.extract_with_rules import DOC_DIR, Extractor, document_
 from docingest.ingestion import review_ai
 from docingest.ingestion.review_proposals import ReviewBoard, ReviewError, learned_file
 from docingest.utils.gbrain_client import GBrain, GBrainError
+from docingest.utils.logger import get_logger, set_document
 from docingest.utils.markdown_parsing import slugify
 from docingest.utils.data_types import DocumentResult, Page
 from docingest.ingestion.ingest_state import State
@@ -39,11 +41,13 @@ from docingest.ingestion.write_pages import write_pages
 # Name of the shared-entity folder and manifest. They are rebuilt once per run, after all files.
 SHARED = "_shared"
 
+_log = get_logger(__name__)
 
-# Print one progress line with the [docingest] prefix.
+
+# Log one progress line at INFO level (the console and the log files).
 def log(msg: str) -> None:
-    """Print a progress line."""
-    print(f"[docingest] {msg}", flush=True)
+    """Log a progress line."""
+    _log.info(msg)
 
 
 # Find the files to ingest: one file, or everything under a folder. Hidden files and folders are
@@ -141,7 +145,10 @@ class Pipeline:
         extractor = Extractor(self.vocab)
         # Attachments are written here first, then moved under the document's key.
         attach_tmp = self.work / "attachments" / "_incoming"
+        started = time.time()
         conv, reference = convert(path, attach_tmp)
+        _log.step("converted", file=path.name, converter=conv.converter,
+                  secs=f"{time.time() - started:.1f}", chars=len(conv.markdown), warnings=len(conv.warnings))
         # A --kind given on the command line applies only to the top-level file, not to its
         # attachments.
         kind = classify(conv, self.vocab, self.kind if parent is None else None)
@@ -155,6 +162,8 @@ class Pipeline:
         # A file that was ingested before keeps the same key, so its pages are replaced rather than
         # duplicated.
         key = self.state.key_for(str(path.resolve()), proposed)
+        # From here on, every log line carries this document's key.
+        set_document(key)
         # A fingerprint of the file's bytes, stored in the manifest.
         sha = hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -166,6 +175,8 @@ class Pipeline:
             doc.add_link("attachment_of", parent)
         # Decide for each section whether the rules covered it (see rule_confidence.py).
         res.routing = route_sections(res, list(extractor._globals.values()))
+        _log.debug("after rule extraction", sections=len(res.sections), pages=len(res.pages),
+                   shared=len(res.globals))
         low = sum(1 for d in res.routing if d["route"] == "ai")
         log(
             f"  Rule confidence: {len(res.routing) - low} section(s) fully covered by rules, "
@@ -413,7 +424,9 @@ class Pipeline:
         while queue:
             path, parent_slug, parent_key = queue.popleft()
             label = path.name + (f" (attachment of {parent_key})" if parent_key else "")
-            log(f"Processing {label}")
+            # Until the document key is known, lines carry the file name instead.
+            set_document(path.stem)
+            _log.info("processing", file=label)
             started = time.time()
             try:
                 res, attachments = self.process(path, parent_slug, parent_key)
@@ -425,16 +438,23 @@ class Pipeline:
                     self.state.documents[res.key]["parent"] = parent_key
                 # Import the written pages into gbrain. The summary says how many were imported and
                 # how many failed.
+                _log.info("importing pages", pages=len(res.pages))
                 summary = self.gb.import_dir(self.work / "pages" / res.key)
-                log(
-                    f"  {res.kind}: {len(res.sections)} sections, {len(res.pages)} pages, "
-                    f"{len(res.globals)} shared entities; imported {summary.get('imported', 0)} "
-                    f"(unchanged {max(summary.get('unchanged', 0), summary.get('skipped', 0))}, "
-                    f"errors {summary.get('errors', 0)}), {summary.get('chunks', 0)} chunks "
-                    f"in {time.time() - started:.1f}s"
+                _log.step(
+                    "document imported",
+                    kind=res.kind,
+                    sections=len(res.sections),
+                    pages=len(res.pages),
+                    shared=len(res.globals),
+                    imported=summary.get("imported", 0),
+                    unchanged=max(summary.get("unchanged", 0), summary.get("skipped", 0)),
+                    errors=summary.get("errors", 0),
+                    chunks=summary.get("chunks", 0),
+                    secs=f"{time.time() - started:.1f}",
                 )
                 if res.gaps:
-                    log(f"  Schema gaps: {', '.join(g['key'] + ' -> ' + g.get('proposal', g.get('status', 'report only')) for g in res.gaps)}")
+                    _log.warning("schema gaps", gaps=", ".join(
+                        g["key"] + " -> " + g.get("proposal", g.get("status", "report only")) for g in res.gaps))
                 # Import errors fail this document, so it is not marked as processed.
                 if summary.get("errors"):
                     raise RuntimeError(f"gbrain import reported errors: {summary.get('failures')}")
@@ -451,10 +471,10 @@ class Pipeline:
             # A file that cannot be converted is recorded as failed. No traceback is kept, because
             # the reason is clear.
             except ConversionError as e:
-                log(f"  FAILED (conversion): {e}")
+                _log.error("conversion failed", reason=e)
                 state["failed"].append({"file": str(path), "error": str(e), "parent": parent_key})
             except Exception as e:  # keep going with the remaining documents
-                log(f"  FAILED: {e}")
+                _log.error("document failed", reason=e)
                 state["failed"].append(
                     {
                         "file": str(path),
@@ -590,11 +610,14 @@ class Pipeline:
     # latest.json and latest.md for quick reading.
     def verify(self, keys: list[str], search_limit: int = 0) -> dict:
         """Verify the given documents and write the reports to ``work/reports``."""
+        _log.info("verifying documents", documents=len(keys))
+        started = time.time()
         report = verify(self.work, self.gb, keys, search_limit)
+        _log.step("verification finished", secs=f"{time.time() - started:.1f}", status=report["summary"]["status"])
         reports = self.work / "reports"
         reports.mkdir(parents=True, exist_ok=True)
         # The timestamp keeps each run's report. latest.* is overwritten every time.
-        stamp = time.strftime("%Y%m%d-%H%M%S")
+        stamp = clock.compact()
         (reports / f"verify-{stamp}.json").write_text(
             json.dumps(report, indent=1, ensure_ascii=False)
         )

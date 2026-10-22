@@ -31,6 +31,7 @@ from pathlib import Path
 
 import yaml
 
+from docingest.utils import clock
 from docingest.utils.data_types import Converted
 from docingest.vocabulary.vocabulary_loader import LEARNED_NAME, Vocabulary, norm_header
 
@@ -88,7 +89,7 @@ def learned_file(work: Path) -> Path:
 # The current time, for file names and the audit log.
 def now() -> str:
     """Timestamp for files and logs."""
-    return time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    return clock.iso()
 
 
 # The name of the person deciding. Order: the --by flag, then DOCINGEST_USER, then the OS user.
