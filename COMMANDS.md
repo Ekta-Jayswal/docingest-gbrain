@@ -30,7 +30,7 @@ LITELLM_API_KEY=your-key
 ./ingest.sh doctor
 ```
 
-Prints PASS / WARN / FAIL / INFO per item: Python, packages, gbrain, bun, LibreOffice, brain folder, LiteLLM proxy (lists its models and embeds one word), Claude key. Fix every FAIL before going on. The messages say what to do.
+Prints PASS / WARN / FAIL / INFO per item: Python, packages, gbrain, bun, LibreOffice, brain folder, LiteLLM proxy (lists its models and embeds one word), LLM proxy for `--llm`. Fix every FAIL before going on. The messages say what to do.
 
 ## 3. Ingest
 
@@ -53,7 +53,7 @@ Prints PASS / WARN / FAIL / INFO per item: Python, packages, gbrain, bun, LibreO
 
 `--project` can also come from `DOCINGEST_PROJECT`, `--team` from `DOCINGEST_TEAM` and `--submitted-by` from `DOCINGEST_USER` (in a container, set them with `-e`). Without a project the run is recorded as `unassigned`.
 
-- The first `--embed` run on a new folder creates the brain with `litellm:text-embedding-3-small` at 1536 dimensions. Other model or width: add `--embedding-model litellm:<name> --embedding-dimensions <N>` to **every** command that embeds. The width is fixed when the brain is created.
+- The first `--embed` run on a new folder creates the brain with `litellm:text-embedding-3-small` at 1536 dimensions. Other model or width: set `EMBEDDING_MODEL=<name the proxy lists>` and `EMBEDDING_DIMENSIONS=<N>` in `.env.local`, or add `--embedding-model litellm:<name> --embedding-dimensions <N>` to **every** command that embeds. The width is fixed when the brain is created.
 - Re-running is safe. Unchanged files are skipped; changed files are replaced.
 - Exit code `0` = all files converted and all checks passed; `1` = a file failed or a check failed.
 - Embedding only starts if verification did not fail. At most `--max-chunks` (default 20000) pending chunks are embedded in one run; a bigger backlog stops with a message.

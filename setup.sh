@@ -31,6 +31,8 @@ if [ ! -f .env.local ]; then
 #GBRAIN_BIN=/home/ubuntu/.bun/bin/gbrain
 #LITELLM_BASE_URL=https://your-proxy.example.com/v1
 #LITELLM_API_KEY=replace-me
+#EMBEDDING_MODEL=name-the-proxy-lists
+#LLM_MODEL=gpt-5-mini-ai
 ENV
   chmod 600 .env.local
   echo "Created .env.local; edit it to add your LiteLLM URL and key"

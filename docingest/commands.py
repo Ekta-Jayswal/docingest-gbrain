@@ -47,11 +47,15 @@ def _paths(args) -> tuple[Path, Path]:
     return home, work
 
 
-# Default embedding model, called through the LiteLLM proxy.
-DEFAULT_MODEL = "litellm:text-embedding-3-small"
+# Default embedding model, called through the LiteLLM proxy. EMBEDDING_MODEL in .env.local
+# overrides it (a bare proxy model name gets the litellm: prefix), so a proxy that names the
+# model differently needs no flag on every command.
+DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL") or "text-embedding-3-small"
+if not DEFAULT_MODEL.startswith("litellm:"):
+    DEFAULT_MODEL = "litellm:" + DEFAULT_MODEL
 # Width of the default model's vectors. The brain stores vectors at this width, so it must match
 # the model.
-DEFAULT_DIMS = 1536
+DEFAULT_DIMS = int(os.environ.get("EMBEDDING_DIMENSIONS") or 1536)
 
 
 # The embedding model and width from the command line. Used by every command that embeds.
