@@ -1,0 +1,93 @@
+{
+  "accessibility_audit_sow": {
+    "attributes_accuracy": 0.95,
+    "classification": 1.0,
+    "entities_f1": 0.9473684210526316,
+    "entities_precision": 1.0,
+    "links_f1": 0.8333333333333333,
+    "links_precision": 1.0,
+    "overall": 0.9455043859649123,
+    "retrieval_hit_rate": 0.8888888888888888,
+    "sections_f1": 0.9444444444444444,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 1.0
+  },
+  "data_migration_sow": {
+    "attributes_accuracy": 1.0,
+    "classification": 1.0,
+    "entities_f1": 1.0,
+    "entities_precision": 1.0,
+    "links_f1": 1.0,
+    "links_precision": 1.0,
+    "overall": 0.9775132275132276,
+    "retrieval_hit_rate": 1.0,
+    "sections_f1": 0.962962962962963,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 0.8571428571428571
+  },
+  "expense_capture_prd": {
+    "attributes_accuracy": 1.0,
+    "classification": 1.0,
+    "entities_f1": 1.0,
+    "entities_precision": 1.0,
+    "links_f1": 1.0,
+    "links_precision": 1.0,
+    "overall": 0.9956896551724138,
+    "retrieval_hit_rate": 1.0,
+    "sections_f1": 0.9655172413793104,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 1.0
+  },
+  "field_service_brd": {
+    "attributes_accuracy": 1.0,
+    "classification": 1.0,
+    "entities_f1": 1.0,
+    "entities_precision": 1.0,
+    "links_f1": 1.0,
+    "links_precision": 1.0,
+    "overall": 0.995,
+    "retrieval_hit_rate": 1.0,
+    "sections_f1": 0.9600000000000001,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 1.0
+  },
+  "loan_origination_brd": {
+    "attributes_accuracy": 0.9101123595505618,
+    "classification": 1.0,
+    "entities_f1": 0.9941520467836257,
+    "entities_precision": 1.0,
+    "links_f1": 0.9056603773584906,
+    "links_precision": 1.0,
+    "overall": 0.9710322646282514,
+    "retrieval_hit_rate": 1.0,
+    "sections_f1": 0.9583333333333334,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 1.0
+  },
+  "permit_portal_brd": {
+    "attributes_accuracy": 0.9642857142857143,
+    "classification": 1.0,
+    "entities_f1": 0.928,
+    "entities_precision": 1.0,
+    "links_f1": 0.7234042553191489,
+    "links_precision": 0.9444444444444444,
+    "overall": 0.9232996300389917,
+    "retrieval_hit_rate": 0.8888888888888888,
+    "sections_f1": 0.9818181818181818,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 0.9
+  },
+  "pharmacy_refills_prd": {
+    "attributes_accuracy": 1.0,
+    "classification": 1.0,
+    "entities_f1": 0.9156626506024096,
+    "entities_precision": 1.0,
+    "links_f1": 0.9019607843137256,
+    "links_precision": 0.92,
+    "overall": 0.9333728011593887,
+    "retrieval_hit_rate": 0.875,
+    "sections_f1": 0.9743589743589743,
+    "storage_pass_rate": 1.0,
+    "tables_accuracy": 0.8
+  }
+}

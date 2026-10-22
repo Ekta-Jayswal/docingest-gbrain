@@ -1,0 +1,149 @@
+# Held-out answer key: automatic prescription refills PRD (synthetic, markdown). Outline
+# from a public 12-part PRD template (header, problem, goals and metrics table, non-goals,
+# personas, user stories with Given/When/Then, numbered functional requirements, NFRs,
+# dependencies, phasing, open questions and risks, appendix). Written from the document
+# alone, before the pipeline was run on it. Never tune the pipeline against this key.
+
+document: pharmacy_refills_prd.md
+kind: prd
+title_contains: Automatic Prescription Refills
+document_attributes:
+  status: In review
+
+sections:
+  - 1. Problem statement
+  - 2. Goals & success metrics
+  - 3. Non-goals
+  - 4. Users & personas
+  - Long-term patient
+  - Store pharmacist
+  - Pharmacy technician
+  - 5. User stories & acceptance criteria
+  - "US-1: Turn on automatic refills"
+  - "US-2: Know when a refill is ready"
+  - "US-3: Skip one refill"
+  - "US-4: See the day's automatic refills"
+  - "US-5: Stop refills when a prescription runs out"
+  - 6. Functional requirements
+  - 7. Non-functional requirements
+  - 8. Dependencies & integrations
+  - 9. Milestones & phasing
+  - 10. Open questions & risks
+  - 11. Appendix & links
+
+tables:
+  - {first_column: Date, becomes: document control}
+  - {first_column: Goal, becomes: "entities: business_objective"}
+  - {first_column: System, becomes: "entities: system"}
+  - {first_column: Phase, becomes: "entities: milestone"}
+  - {first_column: Question or risk, becomes: "entities: open_question, risk"}
+
+entities:
+  # Header list and the risks table owner column.
+  - {key: p-okafor, type: person, name: Nadia Okafor}
+  - {key: p-wierzbicki, type: person, name: Tomasz Wierzbicki}
+  - {key: p-sato, type: person, name: Hana Sato}
+  - {key: p-mendes, type: person, name: Rafael Mendes}
+  # Goals & success metrics table.
+  - {key: goal-1, type: business_objective, name: Fewer patients run out of medicine, attributes: {baseline: 21%, target: 8%}}
+  - {key: goal-2, type: business_objective, name: Patients adopt automatic refills, attributes: {baseline: 0%, target: 35%}}
+  - {key: goal-3, type: business_objective, name: Less phone work for pharmacists, attributes: {baseline: "64", target: "30"}}
+  # Non-goals: out-of-scope bullets.
+  - {key: ng-1, type: scope_item, name: "This phase does not include controlled substances, which still need a new prescription for each supply.", attributes: {scope: out}}
+  - {key: ng-2, type: scope_item, name: This phase does not include home delivery; refills are collected in store., attributes: {scope: out}}
+  - {key: ng-3, type: scope_item, name: This phase does not include refills for family members managed from one account., attributes: {scope: out}}
+  # Personas: one heading each.
+  - {key: pe-patient, type: persona, name: Long-term patient}
+  - {key: pe-pharmacist, type: persona, name: Store pharmacist}
+  - {key: pe-technician, type: persona, name: Pharmacy technician}
+  # User stories: one heading each, ID in the heading.
+  - {key: US-1, type: user_story, id: US-1}
+  - {key: US-2, type: user_story, id: US-2}
+  - {key: US-3, type: user_story, id: US-3}
+  - {key: US-4, type: user_story, id: US-4}
+  - {key: US-5, type: user_story, id: US-5}
+  # Acceptance criteria: Given/When/Then bullets under each story, no IDs.
+  - {key: ac-1a, type: acceptance_criterion, name: "Given an eligible prescription with repeats left, when I turn on automatic refills, then the app shows the date of the next refill."}
+  - {key: ac-1b, type: acceptance_criterion, name: "Given a controlled substance, when I open the prescription, then the automatic refill switch is not shown."}
+  - {key: ac-2a, type: acceptance_criterion, name: "Given automatic refills are on, when the pharmacist marks the refill ready, then I receive a push notification within five minutes."}
+  - {key: ac-3a, type: acceptance_criterion, name: "Given a refill is due more than 48 hours from now, when I tap Skip, then the refill moves to the following cycle."}
+  - {key: ac-3b, type: acceptance_criterion, name: "Given a refill is due less than 48 hours from now, when I tap Skip, then the app asks me to call the store."}
+  - {key: ac-4a, type: acceptance_criterion, name: "Given it is 06:00 store time, when I open the refill queue, then every automatic refill due today is listed with the patient name and medicine."}
+  - {key: ac-5a, type: acceptance_criterion, name: "Given the last repeat has been dispensed, when the next refill date arrives, then no refill is created and the patient is asked to contact their prescriber."}
+  # Functional requirements: numbered list, bold ID first.
+  - {key: FR-1, type: functional_requirement, id: FR-1}
+  - {key: FR-2, type: functional_requirement, id: FR-2}
+  - {key: FR-3, type: functional_requirement, id: FR-3}
+  - {key: FR-4, type: functional_requirement, id: FR-4}
+  - {key: FR-5, type: functional_requirement, id: FR-5}
+  - {key: FR-6, type: functional_requirement, id: FR-6}
+  - {key: FR-7, type: functional_requirement, id: FR-7}
+  # Non-functional requirements: labelled bullets, no IDs.
+  - {key: nfr-performance, type: nonfunctional_requirement, name: The refill list loads in under 1 second at p95 on a 4G connection.}
+  - {key: nfr-privacy, type: nonfunctional_requirement, name: Medicine names never appear in the text of a push notification.}
+  - {key: nfr-accessibility, type: nonfunctional_requirement, name: All new screens meet WCAG 2.2 AA and work with VoiceOver and TalkBack.}
+  - {key: nfr-availability, type: nonfunctional_requirement, name: "Refill creation keeps working when the app backend is down, because it runs inside PharmaLink."}
+  # Dependencies & integrations table.
+  - {key: sys-pharmalink, type: system, name: PharmaLink, attributes: {lead_time: 6 weeks}}
+  - {key: sys-notify, type: system, name: Notify, attributes: {lead_time: 2 weeks}}
+  - {key: sys-identity, type: system, name: Identity service, attributes: {lead_time: 3 weeks}}
+  # Milestones & phasing table.
+  - {key: ms-pilot, type: milestone, name: Pilot, attributes: {target_date: "2027-01-29"}}
+  - {key: ms-regional, type: milestone, name: Regional launch, attributes: {target_date: "2027-03-26"}}
+  - {key: ms-national, type: milestone, name: National launch, attributes: {target_date: "2027-05-28"}}
+  # Open questions & risks: one mixed table; questions end with "?".
+  - {key: oq-boards, type: open_question, name: "Do state pharmacy boards allow a refill to start without a fresh patient request each time?", attributes: {needed_by: "2026-11-15"}}
+  - {key: risk-cancel, type: risk, name: "Pharmacists may cancel automatic refills they think are not needed, which would erode patient trust."}
+  - {key: oq-skip, type: open_question, name: "Should a skipped refill count towards the insurer's refill window?", attributes: {needed_by: "2026-11-30"}}
+
+links:
+  # Header: product owner.
+  - [document, owned_by, p-okafor]
+  # "As a <persona>, I want ..." in each story.
+  - [US-1, performed_by, pe-patient]
+  - [US-2, performed_by, pe-patient]
+  - [US-3, performed_by, pe-patient]
+  - [US-4, performed_by, pe-technician]
+  - [US-5, performed_by, pe-pharmacist]
+  # Acceptance criteria under their story.
+  - [ac-1a, verifies, US-1]
+  - [ac-1b, verifies, US-1]
+  - [ac-2a, verifies, US-2]
+  - [ac-3a, verifies, US-3]
+  - [ac-3b, verifies, US-3]
+  - [ac-4a, verifies, US-4]
+  - [ac-5a, verifies, US-5]
+  # Functional requirements, "(US-n)" trace. The direction of a typed verb between a
+  # requirement and a story is not stated, so the honest link is the vague one.
+  - [FR-1, references, US-1]
+  - [FR-2, references, US-1]
+  - [FR-3, references, US-1]
+  - [FR-4, references, US-2]
+  - [FR-5, references, US-3]
+  - [FR-6, references, US-4]
+  - [FR-7, references, US-5]
+  # Systems named in the requirement text.
+  - [FR-3, uses_system, sys-pharmalink]
+  - [FR-4, uses_system, sys-notify]
+  - [nfr-availability, uses_system, sys-pharmalink]
+  # Open questions & risks, Owner column.
+  - [oq-boards, owned_by, p-okafor]
+  - [risk-cancel, owned_by, p-mendes]
+  - [oq-skip, owned_by, p-okafor]
+
+review_candidates:
+  - [US-1, realizes, FR-1]
+  - [ms-pilot, delivers, US-1]
+  - [ms-regional, follows, ms-pilot]
+  - [ms-national, follows, ms-regional]
+  - [risk-cancel, threatens, goal-2]
+
+questions:
+  - {query: patients run out of medicine before asking, expect: [goal-1, "section:1. Problem statement"]}
+  - {query: controlled substances, expect: [ng-1, FR-2, ac-1b]}
+  - {query: skip the next refill 48 hours, expect: [US-3, FR-5, ac-3a, ac-3b]}
+  - {query: medicine names in push notifications, expect: [nfr-privacy]}
+  - {query: refill queue at 06:00, expect: [US-4, FR-6, ac-4a]}
+  - {query: state pharmacy boards, expect: [oq-boards]}
+  - {query: Eastgate stores pilot, expect: [ms-pilot, "section:9. Milestones & phasing"]}
+  - {query: refill creation API, expect: [sys-pharmalink, "section:8. Dependencies & integrations"]}

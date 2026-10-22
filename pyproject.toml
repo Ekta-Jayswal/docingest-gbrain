@@ -16,8 +16,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"samples/*" = ["D1", "E501"]  # sample document text
+"tests/helpers/make_sample_documents.py" = ["D1", "E501"]  # sample document text
 "tests/*" = ["D1"]  # test method names say what they test
+"docingest/reporting/dashboard_page.py" = ["E501"]  # HTML table rows read better on one line
+"docingest/evaluation/answer_key_evaluation.py" = ["E501"]  # markdown table rows read better on one line
 
 [tool.ruff.format]
 quote-style = "double"

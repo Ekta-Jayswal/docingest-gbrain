@@ -2,6 +2,9 @@
 # Run docingest from this folder. See COMMANDS.md for every command.
 #   ./ingest.sh doctor                         check this machine
 #   ./ingest.sh ingest <file-or-folder> [--embed]
+#   ./ingest.sh selftest [--full]              did a change break anything? (quick | everything)
+#   ./ingest.sh eval [--holdout | --all]       score the answer keys
+#   ./ingest.sh review list|show|approve|map|reject|apply|revert|log   schema gaps awaiting a reviewer
 #   ./ingest.sh verify | embed | embeddings-setup | plan | convert | pack | purge
 #
 # Settings (all optional). Put them in ./.env.local, which this script loads:

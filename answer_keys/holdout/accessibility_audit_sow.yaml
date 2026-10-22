@@ -1,0 +1,123 @@
+# Held-out answer key: state agency SOW for a website accessibility audit (synthetic,
+# PDF). Outline from the areas a statement of work addresses (purpose, scope, location,
+# period of performance, deliverables schedule, applicable standards, acceptance criteria,
+# special requirements, contract type and payment schedule, miscellaneous), in the
+# "The Contractor shall" style of government SOWs, with prose signature blocks. Written
+# from the document alone, before the pipeline was run on it. Never tune against this key.
+
+document: accessibility_audit_sow.pdf
+kind: sow
+title_contains: Website Accessibility Audit
+document_attributes:
+  document_id: DOR-2026-0412
+  date: "2026-10-12"
+
+sections:
+  - 1. Purpose
+  - 2. Background
+  - 3. Scope of Work
+  - 3.1 Task 1 - Accessibility Audit
+  - 3.2 Task 2 - Remediation
+  - 3.3 Task 3 - Training and Handover
+  - 4. Location of Work
+  - 5. Period of Performance
+  - 6. Deliverables Schedule
+  - 7. Applicable Standards
+  - 8. Acceptance Criteria
+  - 9. Key Personnel
+  - 10. Points of Contact
+  - 11. Special Requirements
+  - 12. Contract Type and Payment Schedule
+  - 13. Miscellaneous
+  - 14. Signatures
+
+tables:
+  - {first_column: Deliverable No., becomes: "entities: deliverable"}
+  - {first_column: Deliverable, becomes: "entities: acceptance_criterion"}
+  - {first_column: Name, becomes: "entities: person"}
+  - {first_column: Role, becomes: "entities: person"}
+  - {first_column: Payment, becomes: "entities: payment_term"}
+
+entities:
+  # Cover lines and signature blocks.
+  - {key: org-dor, type: organization, name: Department of Revenue}
+  - {key: org-clearpath, type: organization, name: Clearpath Digital Inc.}
+  # Scope of Work: one heading per task.
+  - {key: task-1, type: scope_item, name: Task 1 - Accessibility Audit}
+  - {key: task-2, type: scope_item, name: Task 2 - Remediation}
+  - {key: task-3, type: scope_item, name: Task 3 - Training and Handover}
+  # Deliverables Schedule: numbered rows, no ID prefix.
+  - {key: del-1, type: deliverable, name: Audit plan and page sample, attributes: {due_date: "2027-01-29"}}
+  - {key: del-2, type: deliverable, name: Audit report with prioritized failures, attributes: {due_date: "2027-03-12"}}
+  - {key: del-3, type: deliverable, name: Remediated templates and components, attributes: {due_date: "2027-06-18"}}
+  - {key: del-4, type: deliverable, name: Accessible web forms (40), attributes: {due_date: "2027-08-13"}}
+  - {key: del-5, type: deliverable, name: Training sessions and editor checklist, attributes: {due_date: "2027-09-10"}}
+  - {key: del-6, type: deliverable, name: Final conformance report, attributes: {due_date: "2027-09-24"}}
+  # Acceptance Criteria table.
+  - {key: ac-2, type: acceptance_criterion, name: "Every failure lists the WCAG success criterion, the page and the severity."}
+  - {key: ac-3, type: acceptance_criterion, name: No critical or serious failures remain when re-tested with the Department's tool and two screen readers.}
+  - {key: ac-4, type: acceptance_criterion, name: Each form can be completed and submitted using only a keyboard.}
+  - {key: ac-6, type: acceptance_criterion, name: Signed off by the Department's Accessibility Coordinator.}
+  # Key Personnel, Points of Contact and signature blocks.
+  - {key: p-price, type: person, name: Devon Price, attributes: {position: Project Manager}}
+  - {key: p-karim, type: person, name: Aisha Karim, attributes: {position: Lead Accessibility Tester}}
+  - {key: p-brandt, type: person, name: Leo Brandt, attributes: {position: Front-end Developer}}
+  - {key: p-dunn, type: person, name: Margaret Dunn, attributes: {role: Contracting Officer}}
+  - {key: p-ambrose, type: person, name: Kevin Ambrose, attributes: {role: Department Project Manager}}
+  - {key: p-ferreira, type: person, name: Lucia Ferreira, attributes: {role: Accessibility Coordinator}}
+  - {key: p-lin, type: person, name: Rebecca Lin, attributes: {title: Chief Executive Officer}}
+  # Special Requirements: bullets.
+  - {key: con-1, type: constraint, name: All Contractor staff with access to Department systems shall pass a state background check before starting work.}
+  - {key: con-2, type: constraint, name: The Contractor shall not copy taxpayer data out of the Department's test environment.}
+  - {key: con-3, type: constraint, name: Work on the production website shall be done only between 19:00 and 06:00.}
+  # Payment schedule.
+  - {key: pay-1, type: payment_term, name: Payment 1, attributes: {amount: "$21,500"}}
+  - {key: pay-2, type: payment_term, name: Payment 2, attributes: {amount: "$64,000"}}
+  - {key: pay-3, type: payment_term, name: Payment 3, attributes: {amount: "$88,000"}}
+  - {key: pay-4, type: payment_term, name: Payment 4, attributes: {amount: "$62,000"}}
+  - {key: pay-5, type: payment_term, name: Payment 5, attributes: {amount: "$33,000"}}
+
+links:
+  # Cover: Agency and Contractor lines.
+  - [document, has_client, org-dor]
+  - [document, has_vendor, org-clearpath]
+  # Deliverables Schedule, Task column.
+  - [del-1, within_scope, task-1]
+  - [del-2, within_scope, task-1]
+  - [del-3, within_scope, task-2]
+  - [del-4, within_scope, task-2]
+  - [del-5, within_scope, task-3]
+  - [del-6, within_scope, task-2]
+  # Acceptance Criteria table, Deliverable column.
+  - [ac-2, verifies, del-2]
+  - [ac-3, verifies, del-3]
+  - [ac-4, verifies, del-4]
+  - [ac-6, verifies, del-6]
+  # Payment schedule, Deliverable column.
+  - [pay-1, paid_on, del-1]
+  - [pay-2, paid_on, del-2]
+  - [pay-3, paid_on, del-3]
+  - [pay-4, paid_on, del-4]
+  - [pay-5, paid_on, del-6]
+  # Signature blocks: "For <party>", signed and dated.
+  - [p-dunn, approved, document]
+  - [p-lin, approved, document]
+  - [p-dunn, member_of, org-dor]
+  - [p-lin, member_of, org-clearpath]
+
+review_candidates:
+  - [p-price, member_of, org-clearpath]
+  - [p-karim, member_of, org-clearpath]
+  - [p-brandt, member_of, org-clearpath]
+  - [del-6, accepted_by, p-ferreira]
+
+questions:
+  - {query: manual testing with screen readers, expect: [task-1, "section:3.1 Task 1 - Accessibility Audit"]}
+  - {query: background check, expect: [con-1]}
+  - {query: production website working hours, expect: [con-3]}
+  - {query: firm-fixed-price total, expect: ["section:12. Contract Type and Payment Schedule"]}
+  - {query: travel costs, expect: ["section:13. Miscellaneous"]}
+  - {query: Section 508, expect: ["section:7. Applicable Standards"]}
+  - {query: completed using only a keyboard, expect: [ac-4]}
+  - {query: training on site at Capitol Avenue, expect: ["section:4. Location of Work"]}
+  - {query: estimated tax payment form screen readers, expect: ["section:2. Background"]}

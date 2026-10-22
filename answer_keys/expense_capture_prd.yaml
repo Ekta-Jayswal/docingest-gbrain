@@ -1,0 +1,143 @@
+# Answer key: ideal ingestion of the SnapClaim PRD (synthetic, markdown with real headings).
+# Written from the document alone, not from the pipeline's output. See
+# loan_origination_brd.yaml for the format.
+
+document: expense_capture_prd.md
+kind: prd
+title_contains: SnapClaim Mobile Expense Capture
+document_attributes:
+  document_id: PRD-EXP-014
+  version: "2.1"
+  status: In review
+
+sections:
+  - 1. Overview
+  - 2. Goals and Success Metrics
+  - 3. Personas
+  - 4. Scope
+  - 4.1 In scope
+  - 4.2 Out of scope
+  - 5. Epics
+  - 6. User Stories
+  - 7. Acceptance Criteria
+  - 8. Non-Functional Requirements
+  - 9. Integrations
+  - 10. Release Plan
+  - 11. Dependencies and Risks
+  - 12. Open Questions
+
+tables:
+  - {first_column: Field, becomes: document attributes}
+  - {first_column: ID, becomes: "entities: business_objective"}
+  - {first_column: ID, becomes: "entities: persona"}
+  - {first_column: ID, becomes: "entities: epic"}
+  - {first_column: ID, becomes: "entities: user_story"}
+  - {first_column: ID, becomes: "entities: acceptance_criterion"}
+  - {first_column: ID, becomes: "entities: nonfunctional_requirement"}
+  - {first_column: System, becomes: "entities: system"}
+  - {first_column: ID, becomes: "entities: milestone"}
+  - {first_column: ID, becomes: "entities: dependency, risk"}
+  - {first_column: ID, becomes: "entities: open_question"}
+
+entities:
+  - {key: G-1, type: business_objective, id: G-1, attributes: {metric: Median days from purchase to submitted claim, target: Under 2 days}}
+  - {key: G-2, type: business_objective, id: G-2, attributes: {metric: Claims returned by finance for missing information, target: Below 5%}}
+  - {key: G-3, type: business_objective, id: G-3, attributes: {metric: Claims approved from a phone, target: At least 60%}}
+  - {key: PE-1, type: persona, id: PE-1}
+  - {key: PE-2, type: persona, id: PE-2}
+  - {key: PE-3, type: persona, id: PE-3}
+  - {key: EP-1, type: epic, id: EP-1}
+  - {key: EP-2, type: epic, id: EP-2}
+  - {key: EP-3, type: epic, id: EP-3}
+  - {key: US-01, type: user_story, id: US-01, attributes: {priority: Must}}
+  - {key: US-02, type: user_story, id: US-02, attributes: {priority: Must}}
+  - {key: US-03, type: user_story, id: US-03, attributes: {priority: Should}}
+  - {key: US-04, type: user_story, id: US-04, attributes: {priority: Must}}
+  - {key: US-05, type: user_story, id: US-05, attributes: {priority: Must}}
+  - {key: US-06, type: user_story, id: US-06, attributes: {priority: Should}}
+  - {key: AC-01, type: acceptance_criterion, id: AC-01}
+  - {key: AC-02, type: acceptance_criterion, id: AC-02}
+  - {key: AC-03, type: acceptance_criterion, id: AC-03}
+  - {key: AC-04, type: acceptance_criterion, id: AC-04}
+  - {key: AC-05, type: acceptance_criterion, id: AC-05}
+  - {key: AC-06, type: acceptance_criterion, id: AC-06}
+  - {key: NFR-01, type: nonfunctional_requirement, id: NFR-01, attributes: {category: Performance}}
+  - {key: NFR-02, type: nonfunctional_requirement, id: NFR-02, attributes: {category: Security}}
+  - {key: NFR-03, type: nonfunctional_requirement, id: NFR-03, attributes: {category: Availability}}
+  - {key: NFR-04, type: nonfunctional_requirement, id: NFR-04, attributes: {category: Accessibility}}
+  - {key: sys-ledgerone, type: system, name: LedgerOne ERP, attributes: {purpose: Receives approved claims for payment}}
+  - {key: sys-identityhub, type: system, name: IdentityHub, attributes: {purpose: Single sign-on for employees and managers}}
+  - {key: sys-receiptvision, type: system, name: ReceiptVision OCR, attributes: {purpose: "Reads amount, date and merchant from receipt images"}}
+  - {key: MS-1, type: milestone, id: MS-1, attributes: {date: "2026-12-01"}}
+  - {key: MS-2, type: milestone, id: MS-2, attributes: {date: "2027-02-15"}}
+  - {key: MS-3, type: milestone, id: MS-3, attributes: {date: "2027-04-01"}}
+  - {key: DEP-1, type: dependency, id: DEP-1}
+  - {key: RK-1, type: risk, id: RK-1}
+  - {key: OQ-1, type: open_question, id: OQ-1}
+  - {key: OQ-2, type: open_question, id: OQ-2}
+  - {key: p-nandakumar, type: person, name: Priya Nandakumar}
+  - {key: p-ruiz, type: person, name: Tomas Ruiz}
+  - {key: sc-in-1, type: scope_item, name: "Receipt capture with automatic reading of amount, date and merchant", attributes: {scope: in}}
+  - {key: sc-in-2, type: scope_item, name: Claim drafting and submission from the phone, attributes: {scope: in}}
+  - {key: sc-in-3, type: scope_item, name: Manager approval and rejection from the phone, attributes: {scope: in}}
+  - {key: sc-in-4, type: scope_item, name: Offline capture with upload when the connection returns, attributes: {scope: in}}
+  - {key: sc-out-1, type: scope_item, name: Corporate card reconciliation, attributes: {scope: out}}
+  - {key: sc-out-2, type: scope_item, name: Per-diem and mileage calculations, attributes: {scope: out}}
+  - {key: sc-out-3, type: scope_item, name: Changes to the web portal, attributes: {scope: out}}
+
+links:
+  # Document control: Owner field.
+  - [document, owned_by, p-nandakumar]
+  # Epics table, Goal column.
+  - [EP-1, supports, G-1]
+  - [EP-2, supports, G-1]
+  - [EP-2, supports, G-2]
+  - [EP-3, supports, G-3]
+  # User stories table, Epic column.
+  - [US-01, part_of, EP-1]
+  - [US-02, part_of, EP-1]
+  - [US-03, part_of, EP-1]
+  - [US-04, part_of, EP-2]
+  - [US-05, part_of, EP-3]
+  - [US-06, part_of, EP-3]
+  # User stories table, Persona column.
+  - [US-01, performed_by, PE-1]
+  - [US-02, performed_by, PE-1]
+  - [US-03, performed_by, PE-1]
+  - [US-04, performed_by, PE-1]
+  - [US-05, performed_by, PE-2]
+  - [US-06, performed_by, PE-3]
+  # Acceptance criteria table, Story column.
+  - [AC-01, verifies, US-01]
+  - [AC-02, verifies, US-02]
+  - [AC-03, verifies, US-03]
+  - [AC-04, verifies, US-04]
+  - [AC-05, verifies, US-05]
+  - [AC-06, verifies, US-06]
+  # Release plan, Includes column.
+  - [MS-1, delivers, EP-1]
+  - [MS-2, delivers, EP-1]
+  - [MS-2, delivers, EP-2]
+  - [MS-3, delivers, EP-3]
+  # Owner columns.
+  - [DEP-1, owned_by, p-ruiz]
+  - [RK-1, owned_by, p-nandakumar]
+  - [OQ-1, owned_by, p-nandakumar]
+  - [OQ-2, owned_by, p-ruiz]
+
+review_candidates:
+  - [DEP-1, depends_on, sys-ledgerone]
+  - [US-02, uses_system, sys-receiptvision]
+  - [RK-1, threatens, AC-02]
+  - [MS-2, follows, MS-1]
+
+questions:
+  - {query: receipt photo full resolution, expect: [AC-01]}
+  - {query: capture receipts without a connection, expect: [US-03, AC-03, sc-in-4]}
+  - {query: per-diem and mileage, expect: [sc-out-2, "section:4.2 Out of scope"]}
+  - {query: thermal-paper receipts, expect: [RK-1]}
+  - {query: claims API v3, expect: [DEP-1]}
+  - {query: WCAG, expect: [NFR-04]}
+  - {query: delegation while on leave, expect: [OQ-2]}
+  - {query: single sign-on, expect: [sys-identityhub]}
+  - {query: general availability, expect: [MS-2]}
