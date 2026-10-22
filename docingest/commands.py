@@ -14,6 +14,8 @@ import time
 from pathlib import Path
 
 from docingest.reporting import dashboard_page
+from docingest.utils import clock
+from docingest.utils import logger as logmod
 
 from docingest.reporting import recap
 from docingest.reporting import run_history
@@ -41,6 +43,7 @@ def _paths(args) -> tuple[Path, Path]:
     home = Path(home).resolve()
     # The work files (state, manifests, reports) belong to one brain, so they live beside it.
     work = Path(args.work or os.environ.get("DOCINGEST_WORK") or home / "work").resolve()
+    logmod.add_file(work)  # every command writes its own log file under work/logs/
     return home, work
 
 
@@ -90,8 +93,8 @@ def cmd_ingest(args) -> int:
     # The identity of this run, saved with the history. _t0 is the start time, used for the
     # duration and then removed.
     run = {
-        "run_id": run_history.new_run_id(),
-        "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "run_id": logmod.current_run() or run_history.new_run_id(),
+        "started_at": clock.iso(),
         "project": args.project or os.environ.get("DOCINGEST_PROJECT") or "unassigned",
         "team": args.team or os.environ.get("DOCINGEST_TEAM"),
         "submitted_by": run_history.submitter(args.submitted_by),
@@ -164,7 +167,7 @@ def cmd_ingest(args) -> int:
     log(f"Run recorded in {run_history.history_dir(work)}")
     _write_dashboard(work)
     for line in recap.lines(work, result, report, embed_report, run["run_id"], evals):
-        log(f"{time.strftime('%H:%M:%S')} {line}")
+        log(line)
     # A successful run that left proposals for a reviewer uses a special exit code, so scripts can
     # notice.
     if result["proposals_pending"] and not exit_code and args.pending_exit_code:
@@ -222,6 +225,7 @@ def _decide(board: ReviewBoard, args, text: str) -> int:
     action, why = board.ready(p, board.vocab())
     print(f"Recorded for {by}." + ("" if action else f" Not applied yet: {why}."))
     print("It is applied by the next `ingest` or by: ./ingest.sh review apply")
+    _write_dashboard(board.work)
     return 0
 
 
@@ -277,6 +281,7 @@ def cmd_review(args) -> int:
                 except ReviewError as e:
                     print(f"  {pid}: refused: {e}")
             board.write_pending_md()
+            _write_dashboard(board.work)
             return 0
         if not args.id:
             sys.exit("Give a proposal ID, or --all-suggested")
@@ -299,6 +304,7 @@ def cmd_review(args) -> int:
         if result["proposals_rolled_back"]:
             print(f"Rolled back (verification failed): {', '.join(result['proposals_rolled_back'])}")
         print(f"Still open: {', '.join(result['proposals_pending']) or 'none'}  ({now()})")
+        _write_dashboard(work)
         return 1 if result["proposals_rolled_back"] else 0
     # Undo one applied decision: put the earlier vocabulary back, read the affected documents
     # again, and rebuild the shared pages.
@@ -314,6 +320,7 @@ def cmd_review(args) -> int:
         except ReviewError as e:
             sys.exit(str(e))
         print(f"{args.id} reverted; {len(p['documents'])} document(s) read again with the earlier vocabulary.")
+        _write_dashboard(work)
         return 0
     return 1
 
@@ -323,8 +330,7 @@ def _write_dashboard(work: Path) -> Path:
     """Regenerate the run-history page; a failure here never fails the run."""
     out = work / "reports" / "dashboard.html"
     try:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(dashboard_page.render(work), encoding="utf-8")
+        dashboard_page.write(work, out)
         log(f"Dashboard: {out}")
     except Exception as e:  # the page is a convenience; the run history is the record
         log(f"Dashboard not written: {e}")
@@ -652,8 +658,7 @@ def cmd_dashboard(args) -> int:
     """Rebuild the run-history page from the run history files."""
     _, work = _paths(args)
     out = Path(args.out).resolve() if args.out else work / "reports" / "dashboard.html"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(dashboard_page.render(work), encoding="utf-8")
+    dashboard_page.write(work, out)
     log(f"Dashboard: {out}")
     return 0
 
@@ -945,4 +950,17 @@ def main(argv: list[str] | None = None) -> int:
     # exact command.
     args = parser.parse_args(argv)
     args.argv = list(sys.argv[1:] if argv is None else argv)
-    return args.func(args)
+    # One run ID per command: every log line, the run history and the recap share it.
+    logmod.setup()
+    logmod.set_run(run_history.new_run_id())
+    log_cmd = logmod.get_logger(__name__)
+    log_cmd.info("command started", command=args.command)
+    started = time.time()
+    try:
+        code = args.func(args)
+    except Exception:
+        # Keep the traceback in the log file, then let the error reach the user as before.
+        log_cmd.exception("command failed", command=args.command)
+        raise
+    log_cmd.step("command finished", command=args.command, secs=f"{time.time() - started:.1f}", exit=code)
+    return code

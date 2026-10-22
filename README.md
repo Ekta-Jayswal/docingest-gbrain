@@ -821,6 +821,35 @@ ruff format .         # format
 
 See [COMMANDS.md](COMMANDS.md) sections 6 and 7.
 
+## Logs
+
+Every line the tool prints has the same shape, so you can tell which run, document and code path it came from:
+
+```
+2026-10-22 20:13:04 IST INFO  [run=ab12cd doc=loan_origination_brd] docingest.ingestion.pipeline (pipeline.py:212) processing | file=loan_origination_brd.md
+```
+
+- **Time** is always India time (IST), whatever the machine's clock says.
+- **`run`** is the run's ID. Every line from one command has the same value, and it appears in the run history and the recap.
+- **`doc`** is the document key, or `-` outside a document.
+- **Module, file and line** show where the message came from.
+- **Colors** (on a terminal only): green is a key step that finished, yellow a warning, red an error. Other lines are plain.
+- **Attributes** follow the message as `key=value` pairs, for example `secs=41.2`.
+
+Each run writes a full log, including the debug detail that the console leaves out:
+
+- `work/logs/runs/<run_id>.log`: that run only. The dashboard's Runs table links to it.
+- `work/logs/docingest.log`: all runs, rotated at 5 MB.
+
+Settings (in `.env.local` or the environment):
+
+| Setting | What it does | Default |
+|---|---|---|
+| `DOCINGEST_LOG_LEVEL` | Console level: `DEBUG`, `INFO`, `WARNING` or `ERROR` | `INFO` |
+| `DOCINGEST_COLOR` | `always`, `never` or `auto` (color only on a terminal) | `auto` |
+| `NO_COLOR` | Set to any value to turn color off | unset |
+| `LLM_TIMEOUT` | Seconds to wait for each model reply. Printed before each call | `300` |
+
 ## Running on a plain Linux or EC2 host (no Docker)
 
 For a machine where gbrain is already installed and you want to run the pipeline directly:

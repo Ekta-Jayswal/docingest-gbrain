@@ -13,7 +13,12 @@ import os
 import shutil
 import subprocess
 import threading
+import time
 from pathlib import Path
+
+from docingest.utils.logger import get_logger
+
+_log = get_logger(__name__)
 
 
 # Raised when a gbrain command or MCP call fails, so callers catch one error type.
@@ -63,6 +68,7 @@ class GBrain:
         self, *args: str, check: bool = True, timeout: int = 1800
     ) -> subprocess.CompletedProcess:
         """Run ``gbrain <args>``, log it, and raise GBrainError on failure when ``check``."""
+        started = time.time()
         proc = subprocess.run(
             [self.binary, *args],
             capture_output=True,
@@ -72,6 +78,8 @@ class GBrain:
             timeout=timeout,
             check=False,
         )  # exit code handled below
+        _log.debug("gbrain call", args=" ".join(args[:3]), exit=proc.returncode,
+                   secs=f"{time.time() - started:.2f}")
         # gbrain prints this when it would ignore GBRAIN_HOME. Stop here so nothing is written
         # to a different brain.
         if "Ignoring GBRAIN_HOME" in proc.stderr:

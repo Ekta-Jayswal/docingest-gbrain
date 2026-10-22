@@ -27,9 +27,9 @@ def manifest(source: Path, **extra) -> dict:
         "sections": [{"heading": "Scope"}, {"heading": "Risks"}],
         "tables": [],
         "pages": [
-            {"type": "document_section", "links": {"section_of": ["doc"]}},
-            {"type": "requirement", "links": {"mentions": ["a", "b"], "owned_by": ["c"]}},
-            {"type": "requirement", "links": {"mentions": ["d"]}},
+            {"slug": "s0", "type": "document_section", "links": {"section_of": ["doc"]}},
+            {"slug": "s1", "type": "requirement", "links": {"mentions": ["a", "b"], "owned_by": ["c"]}},
+            {"slug": "s2", "type": "requirement", "links": {"mentions": ["d"]}},
         ],
         **extra,
     }

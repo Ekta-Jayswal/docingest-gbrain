@@ -16,16 +16,19 @@ points at the wrong target type is rejected and listed in the report.
 from __future__ import annotations
 
 import json
+import time
 
 from docingest.ingestion.rule_confidence import ai_input
 from docingest.ingestion.extract_with_rules import Extractor
 from docingest.utils.markdown_parsing import normalize_ws, slugify
 from docingest.utils.data_types import DocumentResult, Page
-from docingest.utils.llm_client import ChatClient, LLMError, model_name, prices, settings
+from docingest.utils.llm_client import ChatClient, LLMError, model_name, prices, settings, timeout_seconds
+from docingest.utils.logger import get_logger
 from docingest.vocabulary.vocabulary_loader import Vocabulary
 
 # The chat model used for extraction. It comes from LLM_MODEL in .env.local.
 MODEL = model_name()
+_log = get_logger(__name__)
 PRICE_IN, PRICE_OUT = prices()  # USD per million tokens, from LLM_PRICE_IN / LLM_PRICE_OUT
 # Page types that the rules create to hold the document's structure. The AI never extracts these.
 STRUCTURAL_TYPES = {"source_document", "document_section", "record"}
@@ -287,7 +290,15 @@ class LLMExtractor:
                 },
             ]
             # Ask the model about this section, and count its tokens for the cost estimate.
+            _log.info("sending section to the model", section=f"{s.index + 1}/{len(res.sections)}",
+                      heading=repr(s.heading[:40]), chars=len(text), waits_up_to=f"{timeout_seconds()}s")
+            started = time.time()
             data, error, usage = self._call(user)
+            secs = f"{time.time() - started:.1f}"
+            if error:
+                _log.error("section failed", section=s.index + 1, secs=secs, reason=error)
+            else:
+                _log.info("section answered", section=s.index + 1, secs=secs)
             report["sections"] += 1
             report["sent"].append(s.index + 1)
             report["input_tokens"] += usage.get("input", 0)
@@ -313,6 +324,10 @@ class LLMExtractor:
         report["estimated_cost_usd"] = round(
             report["input_tokens"] * PRICE_IN / 1e6 + report["output_tokens"] * PRICE_OUT / 1e6, 4
         )
+        _log.step("AI extraction finished", sections=report["sections"], skipped=report["skipped_high_confidence"],
+                  accepted=report["accepted"], rejected=report["rejected"],
+                  tokens_in=report["input_tokens"], tokens_out=report["output_tokens"],
+                  est_usd=report["estimated_cost_usd"])
         res.llm_report = report
         return report
 

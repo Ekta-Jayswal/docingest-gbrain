@@ -538,24 +538,48 @@ def _xlsx(path: Path, _attach: Path) -> tuple[Converted, str]:
     ), "\n".join(ref)
 
 
-# PowerPoint: each slide becomes a section with its title, text boxes, tables and speaker notes.
+# PowerPoint: the first slide's title names the document; each slide is a section with its bullets
+# (as list items), tables and speaker notes.
 def _pptx(path: Path, _attach: Path) -> tuple[Converted, str]:
+    """PowerPoint: the first slide's title is the document title, each slide is a section, and
+    body text becomes list items, so the rules read slide bullets like Word list items."""
     from pptx import Presentation
+    from pptx.enum.shapes import PP_PLACEHOLDER
 
     prs = Presentation(str(path))
-    parts, ref = [f"# {path.stem}\n"], []
+    first = prs.slides[0] if len(prs.slides) else None
+    first_title = (
+        first.shapes.title.text_frame.text.strip()
+        if first is not None and first.shapes.title is not None else ""
+    )
+    # The title slide's title names the document; the file name is only a fallback.
+    parts, ref = [f"# {first_title or path.stem}\n"], []
     for n, slide in enumerate(prs.slides, 1):
         title = (
             slide.shapes.title.text_frame.text.strip() if slide.shapes.title is not None else ""
         )
-        parts.append(f"## Slide {n}" + (f": {title}" if title else "") + "\n")
+        # The first slide's title is already the document heading, so it is not repeated.
+        if n > 1 or not title:
+            parts.append(f"## Slide {n}" + (f": {title}" if title else "") + "\n")
         ref.append(title)
         for shape in slide.shapes:
             # The title is already written as the slide heading, so it is not repeated here.
             if shape == slide.shapes.title:
                 continue
             if shape.has_text_frame and shape.text_frame.text.strip():
-                parts.append(shape.text_frame.text.strip() + "\n")
+                # A subtitle is plain text; every other paragraph is a bullet, indented by level.
+                subtitle = (
+                    shape.is_placeholder
+                    and shape.placeholder_format.type == PP_PLACEHOLDER.SUBTITLE
+                )
+                lines = []
+                for para in shape.text_frame.paragraphs:
+                    text = "".join(run.text for run in para.runs).strip()
+                    if not text:
+                        continue
+                    lines.append(text if subtitle else "  " * para.level + "- " + text)
+                if lines:
+                    parts.append("\n".join(lines) + "\n")
                 ref.append(shape.text_frame.text)
             if getattr(shape, "has_table", False) and shape.has_table:
                 rows = [[c.text for c in r.cells] for r in shape.table.rows]
