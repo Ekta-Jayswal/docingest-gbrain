@@ -431,6 +431,36 @@ def cmd_embeddings_setup(args) -> int:
     return 0
 
 
+# The value of one setting in the project's .env.local. A commented-out line does not count.
+def _env_local_value(name: str) -> str | None:
+    """The value of NAME in .env.local, or None if that line is missing or commented out."""
+    try:
+        lines = (Path(__file__).resolve().parents[1] / ".env.local").read_text().splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        if line.startswith(f"{name}="):
+            return line.split("=", 1)[1].strip() or None
+    return None
+
+
+# Which brain folder is used, and where that value came from: --brain, .env.local, the default
+# ./brain that ingest.sh sets, or a value already in the shell (for example exported in ~/.zshrc).
+def _brain_home(args) -> tuple[str | None, str]:
+    """(brain folder or None, where it came from)."""
+    if args.brain:
+        return args.brain, "--brain option"
+    local = _env_local_value("GBRAIN_HOME")
+    if local:
+        return local, ".env.local"
+    home = os.environ.get("GBRAIN_HOME")
+    if not home:
+        return None, "not set"
+    if home == str(Path(__file__).resolve().parents[1] / "brain"):
+        return home, "default ./brain"
+    return home, "shell environment, not .env.local"
+
+
 # The `doctor` command: check Python, packages, gbrain, bun, LibreOffice, the brain folder, the
 # proxy and the API key. Each line is PASS, WARN, FAIL or INFO. Returns 1 if a required check
 # fails.
@@ -475,7 +505,7 @@ def cmd_doctor(args) -> int:
         "python packages",
         f"missing: {', '.join(missing)}. Run ./setup.sh" if missing else "all importable",
     )
-    home = args.brain or os.environ.get("GBRAIN_HOME")
+    home, home_source = _brain_home(args)
     gb = GBrain(Path(home).resolve() if home else Path.cwd() / "brain")
     gbin = Path(gb.binary)
     # The gbrain program counts as found when it exists as a file or is on PATH.
@@ -503,11 +533,25 @@ def cmd_doctor(args) -> int:
     # The brain checks need a home folder. Without one, say so and suggest ./ingest.sh.
     if home:
         h = Path(home).resolve()
+        # A value that only the shell sets is easy to forget, so it is a warning: say where it is
+        # set, and put it in .env.local.
         add(
-            "PASS",
+            "WARN" if home_source.startswith("shell") else "PASS",
             "brain folder",
-            f"{h} ({'exists' if gb.exists() else 'will be created on first use'})",
+            f"{h} from {home_source} "
+            f"({'exists' if gb.exists() else 'will be created on first use'})",
         )
+        # The brain's config stores the database path as an absolute path. If it points somewhere
+        # else (for example a folder the repo was copied from), this brain is not the one at h.
+        db = gb.config().get("database_path")
+        if db and Path(db).resolve() != (h / ".gbrain" / "brain.pglite").resolve():
+            add(
+                "WARN",
+                "database path",
+                f"config.json points to {db}, not inside {h}. Check GBRAIN_HOME in .env.local",
+            )
+        elif db:
+            add("PASS", "database path", db)
         if gb.exists():
             cfg = gb.config()
             add(

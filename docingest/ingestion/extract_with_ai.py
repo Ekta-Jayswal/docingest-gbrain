@@ -354,7 +354,10 @@ class LLMExtractor:
         names = {(vt, normalize_ws(n).lower()): slug for slug, vt, n in known.values()}
         for e in data.get("entities", []):
             if not evidenced(e["evidence"]):
-                reject(f"entity '{e['name']}' ({e['type']}): evidence not found verbatim")
+                reject(
+                    f"entity '{e['name']}' ({e['type']}): evidence not found verbatim: "
+                    f"\"{e['evidence'].strip()[:120]}\""
+                )
                 continue
             vt, name = e["type"], e["name"].strip()
             existing = names.get((vt, normalize_ws(name).lower()))
@@ -430,7 +433,10 @@ class LLMExtractor:
         for r in data.get("relationships", []):
             src, dst, verb = resolve(r["from"]), resolve(r["to"]), r["verb"]
             if not evidenced(r["evidence"]):
-                reject(f"{r['from']} --{verb}--> {r['to']}: evidence not found verbatim")
+                reject(
+                    f"{r['from']} --{verb}--> {r['to']}: evidence not found verbatim: "
+                    f"\"{r['evidence'].strip()[:120]}\""
+                )
                 continue
             if not src or not dst:
                 reject(f"{r['from']} --{verb}--> {r['to']}: unknown endpoint")

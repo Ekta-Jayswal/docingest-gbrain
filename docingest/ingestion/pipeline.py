@@ -198,6 +198,12 @@ class Pipeline:
                 f"~${report['estimated_cost_usd']} "
                 f"({report['input_tokens']} in / {report['output_tokens']} out tokens)"
             )
+            # Rejected items are not written anywhere in the brain. Warn, so the loss is visible.
+            if report["rejected"]:
+                _log.warning(
+                    "AI items rejected", rejected=report["rejected"], accepted=report["accepted"],
+                    manifest=f"manifests/{key}.json",
+                )
 
         # Attachments are moved into the work folder under the document's key, so they stay with
         # it.

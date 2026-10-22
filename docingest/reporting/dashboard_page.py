@@ -679,6 +679,19 @@ def _document(d: dict, link_for) -> str:
     )
 
 
+# The distinct links of one run record. Records written before link details were recorded have
+# none, so their manifest is read instead, to count unique links across every document.
+def _link_keys(work: Path, record: dict) -> list[str]:
+    """Distinct "source|verb|target" keys for a run record, from the record or its manifest."""
+    if record.get("link_keys"):
+        return record["link_keys"]
+    path = work / "manifests" / f"{record.get('key')}.json"
+    if not path.exists():
+        return []
+    m = json.loads(path.read_text())
+    return sorted({f"{p['slug']}|{v}|{t}" for p in m["pages"] for v, ts in p["links"].items() for t in ts})
+
+
 # Build the whole page from the run history in the work folder. Returns the HTML text.
 def render(work: Path, out: Path | None = None) -> str:
     """The whole page as HTML."""
@@ -707,7 +720,7 @@ def render(work: Path, out: Path | None = None) -> str:
                     "links": d.get("links") or 0,
                     "error": d.get("error"),
                     "linkIds": [
-                        link_table.setdefault(k, len(link_table)) for k in d.get("link_keys", [])
+                        link_table.setdefault(k, len(link_table)) for k in _link_keys(work, d)
                     ],
                 }
                 for d in docs
