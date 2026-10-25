@@ -125,6 +125,9 @@ links:
   - [OQ-1, owned_by, p-nandakumar]
   - [OQ-2, owned_by, p-ruiz]
 
+  # Derived by the pipeline and checked by hand: shared terms and systems named in the item's text, and objectives inherited through 'implements'.
+  - [DEP-1, uses_system, sys-ledgerone]
+
 review_candidates:
   - [DEP-1, depends_on, sys-ledgerone]
   - [US-02, uses_system, sys-receiptvision]

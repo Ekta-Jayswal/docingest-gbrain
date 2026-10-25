@@ -23,7 +23,7 @@ import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # The one model the fake proxy offers.
-MODEL = "text-embedding-3-small"
+MODEL = "litellm:text-embed-3S-ai"
 # Words that the fake treats as the same word, so a search can match a document that uses different
 # wording.
 SYNONYMS = {

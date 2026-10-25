@@ -13,6 +13,8 @@ document_attributes:
   date: "2026-10-12"
 
 sections:
+  - STATEMENT OF WORK
+  - Website Accessibility Audit and Remediation
   - 1. Purpose
   - 2. Background
   - 3. Scope of Work

@@ -11,6 +11,7 @@ document_attributes:
   status: In review
 
 sections:
+  - Automatic Prescription Refills
   - 1. Problem statement
   - 2. Goals & success metrics
   - 3. Non-goals
@@ -130,10 +131,14 @@ links:
   - [oq-boards, owned_by, p-okafor]
   - [risk-cancel, owned_by, p-mendes]
   - [oq-skip, owned_by, p-okafor]
+  # Milestones, Scope cell: the pilot covers 'US-1 to US-4'.
+  - [ms-pilot, delivers, US-1]
+  - [ms-pilot, delivers, US-2]
+  - [ms-pilot, delivers, US-3]
+  - [ms-pilot, delivers, US-4]
 
 review_candidates:
   - [US-1, realizes, FR-1]
-  - [ms-pilot, delivers, US-1]
   - [ms-regional, follows, ms-pilot]
   - [ms-national, follows, ms-regional]
   - [risk-cancel, threatens, goal-2]

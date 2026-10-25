@@ -28,8 +28,8 @@ def manifest(source: Path, **extra) -> dict:
         "tables": [],
         "pages": [
             {"slug": "s0", "type": "document_section", "links": {"section_of": ["doc"]}},
-            {"slug": "s1", "type": "requirement", "links": {"mentions": ["a", "b"], "owned_by": ["c"]}},
-            {"slug": "s2", "type": "requirement", "links": {"mentions": ["d"]}},
+            {"slug": "s1", "type": "requirement", "links": {"mentions_item": ["a", "b"], "owned_by": ["c"]}},
+            {"slug": "s2", "type": "requirement", "links": {"mentions_item": ["d"]}},
         ],
         **extra,
     }
@@ -85,7 +85,7 @@ class RecapTest(unittest.TestCase):
         self.assertIn("Summary of run run-1", text)
         self.assertIn("lighthouse_brd.md (brd)", text)
         self.assertIn("content: 2 sections, 0 tables, 3 pages, 2 entities", text)
-        self.assertIn("chunks: 12    links: 5 (mentions 3, owned_by 1, section_of 1)", text)
+        self.assertIn("chunks: 12    links: 5 (mentions_item 3, owned_by 1, section_of 1)", text)
         self.assertIn("rules: All 2 sections fully covered", text)
         self.assertIn("AI: 3 accepted, 1 rejected (~$0.02)", text)
         self.assertIn("tests: WARN (2 pass, 1 warn, 0 fail)", text)

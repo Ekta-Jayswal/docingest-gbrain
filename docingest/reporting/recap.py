@@ -34,7 +34,8 @@ def _latest_eval(work: Path, source: str) -> dict | None:
 
 # Format one evaluation's scores on a single line; "this run" or the date it was recorded.
 def _eval_line(ev: dict, when: str) -> str:
-    s = ev["summary"]
+    # The run history stores the scores flat; a full eval report nests them under "summary".
+    s = ev.get("summary", ev)
     parts = [
         f"overall {_pct(s['overall'])}",
         f"classification {_pct(s['classification'])}",

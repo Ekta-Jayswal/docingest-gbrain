@@ -18,7 +18,7 @@ import os
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from docingest.reporting import run_history
+from docingest.reporting import document_graph, run_history
 from docingest.utils import clock
 
 # How many document entries the page shows in full. Older entries are left out to keep the file
@@ -107,6 +107,7 @@ border:1px solid var(--rule);border-radius:6px;padding:4px 10px;cursor:pointer}
 .pager button:disabled{opacity:.45;cursor:default}
 .llm{color:var(--accent);font-weight:600}
 """
+CSS += document_graph.CSS
 
 
 # Summary cards: recomputed in the browser for the chosen date range (the newest record of each
@@ -596,8 +597,8 @@ def _llm_long(llm: dict | None) -> str:
 
 
 # One expandable entry for a document: a summary line, then its input, tables, pages, links,
-# checks, sections and warnings.
-def _document(d: dict, link_for) -> str:
+# checks, sections, the section graph and warnings.
+def _document(d: dict, link_for, graph_for) -> str:
     """One expandable entry: everything recorded about one document in one run."""
     # A failed document has no content or checks, so its entry shows only its identity and the
     # error.
@@ -673,7 +674,7 @@ def _document(d: dict, link_for) -> str:
         f"<div class='grid'><div><h3>Pages by type ({_e(d.get('pages'))})</h3><table>{pages}</table></div>"
         f"<div><h3>Links by verb ({_e(d.get('links'))})</h3><table>{links}</table></div></div>"
         f"<h3>Verification checks</h3><div class='scroll'><table>{checks}</table></div>"
-        f"<h3>Sections ({len(d.get('sections', []))})</h3><ol>{sections}</ol>"
+        f"<h3>Sections ({len(d.get('sections', []))})</h3><ol>{sections}</ol>{graph_for(d)}"
         + (f"<h3>Warnings</h3><ul>{warnings}</ul>" if warnings else "")
         + "</div></details>"
     )
@@ -690,6 +691,34 @@ def _link_keys(work: Path, record: dict) -> list[str]:
         return []
     m = json.loads(path.read_text())
     return sorted({f"{p['slug']}|{v}|{t}" for p in m["pages"] for v, ts in p["links"].items() for t in ts})
+
+
+# A function that draws the section graph for a document's entry. The graph is read from the
+# document's manifest, which holds its newest run, so only the newest entry of each document shows
+# it. Older entries say where to look.
+def _graph_links(work: Path, latest: list[dict]):
+    """A function that returns the section graph block for one run record ('' when none)."""
+    newest = {id(d) for d in latest}
+
+    # Return the graph block for one record, or a short note when it cannot be drawn.
+    def graph_for(d: dict) -> str:
+        if id(d) not in newest:
+            return "<h3>Section graph</h3><p class='muted'>Shown on this document's newest entry.</p>"
+        path = work / "manifests" / f"{d.get('key')}.json"
+        if not path.exists():
+            return "<h3>Section graph</h3><p class='muted'>No manifest for this document.</p>"
+        drawn = document_graph.render(json.loads(path.read_text()))
+        if drawn is None:
+            return "<h3>Section graph</h3><p class='muted'>Nothing to draw: no sections or items.</p>"
+        svg, n = drawn
+        more = f", {n['left_out']} more items not drawn" if n["left_out"] else ""
+        return (
+            f"<h3>Section graph</h3><details class='gdet'><summary>{n['sections']} sections, "
+            f"{n['items']} items, {n['shared']} shared, {n['links']} links{more}"
+            f" <span class='muted'>(open to see how the sections connect)</span></summary>{svg}</details>"
+        )
+
+    return graph_for
 
 
 # Build the whole page from the run history in the work folder. Returns the HTML text.
@@ -763,7 +792,10 @@ def render(work: Path, out: Path | None = None) -> str:
     )
     # The newest documents, in full, most recent first.
     link_for = _log_links(work, out or work / "reports" / "dashboard.html")
-    doc_entries = "".join(_document(d, link_for) for d in reversed(docs[-MAX_DOCUMENTS:]))
+    graph_for = _graph_links(work, latest)
+    doc_entries = "".join(
+        _document(d, link_for, graph_for) for d in reversed(docs[-MAX_DOCUMENTS:])
+    )
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -804,7 +836,8 @@ Filter or search below, then open an entry to see its input, tables, pages, link
 </main>
 <script id="summary-data" type="application/json">{summary_data}</script>
 <script>{SUMMARY_JS}</script>
-<script>{PAGER_JS}</script></body></html>
+<script>{PAGER_JS}</script>
+<script>{document_graph.JS}</script></body></html>
 """
 
 

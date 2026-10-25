@@ -39,14 +39,14 @@ class VocabularyTest(unittest.TestCase):
 
     # Verbs renamed in earlier vocabulary versions still resolve to their current names.
     def test_old_names_map_to_new_verbs(self):
-        self.assertEqual(self.v.canonical_verb("achieves"), "supports")
-        self.assertEqual(self.v.canonical_verb("mentions_item"), "mentions")
+        self.assertEqual(self.v.canonical_verb("supports"), "achieves")
+        self.assertEqual(self.v.canonical_verb("mentions"), "mentions_item")
         self.assertEqual(self.v.canonical_verb("limits"), "constrains")
-        self.assertEqual(self.v.canonical_verb("supports"), "supports")
+        self.assertEqual(self.v.canonical_verb("achieves"), "achieves")
 
     # A verb with one target type records that type. A verb with no single target records none.
     def test_single_target_is_enforced(self):
-        self.assertEqual(self.v.verbs["supports"].target, "business_objective")
+        self.assertEqual(self.v.verbs["achieves"].target, "business_objective")
         self.assertIsNone(self.v.verbs["measures"].target)
 
     # The same column name gives different verbs, depending on the types on each side of the link.
@@ -59,15 +59,15 @@ class VocabularyTest(unittest.TestCase):
         )
         self.assertEqual(self.v.choose_verb(None, "risk", "functional_requirement"), "threatens")
         self.assertEqual(
-            self.v.choose_verb(None, "functional_requirement", "business_objective"), "supports"
+            self.v.choose_verb(None, "functional_requirement", "business_objective"), "achieves"
         )
 
     # A column's verb is used only when its types fit. Otherwise the link stays generic.
     def test_column_verb_only_when_types_fit(self):
         # "Delivers" on a payment row is a payment trigger, not a delivery.
         self.assertEqual(self.v.choose_verb("delivers", "payment_term", "deliverable"), "paid_on")
-        # "Supports" pointing at a KPI fits no verb, so the link stays generic.
-        self.assertEqual(self.v.choose_verb("supports", "epic", "kpi"), "references")
+        # "Achieves" pointing at a KPI fits no verb, so the link stays generic.
+        self.assertEqual(self.v.choose_verb("achieves", "epic", "kpi"), "references")
         self.assertEqual(
             self.v.choose_verb("implements", "functional_requirement", "business_requirement"),
             "implements",

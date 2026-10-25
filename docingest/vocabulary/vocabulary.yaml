@@ -320,7 +320,7 @@ types:
     primitive: annotation
     scope: document
     id_prefixes: [BUD, COST]
-    keywords: [budget, costs, cost breakdown]
+    keywords: [budget, costs, cost breakdown, cost benefit, cost benefit analysis, costs and benefits, financials]
     title_columns: [category, item, description]
     description: A budget line or cost item
   stakeholder:
@@ -341,13 +341,22 @@ types:
     keywords: [business rules]
     title_columns: [rule, business rule, description]
     description: A policy or rule the business must follow
+  data_requirement:
+    group: requirements
+    dir: docs/data-requirements
+    primitive: concept
+    scope: document
+    id_prefixes: [DR, DATA]
+    keywords: [data requirements, data entities, data retention, data model]
+    title_columns: [data item, data entity, dataset]
+    description: A kind of data the solution must hold, with where it comes from and how long it is kept
   process_step:
     group: solution
     dir: docs/process-steps
     primitive: concept
     scope: document
     id_prefixes: [STEP]
-    keywords: [process steps, process flow]
+    keywords: [process steps, process flow, process, current process, workflow, procedure]
     title_columns: [stage, step name, activity, description]
     keyless_columns: [step, step no, step number]
     description: One step of a current or future business process
@@ -368,7 +377,7 @@ types:
     description: A row from an ID-keyed table whose ID prefix is not in this vocabulary
 
 # Relationship verbs. A link reads as a sentence: source, verb, target
-# ("FR-07 supports BO-1"). One verb per relationship; the verb never names the
+# ("FR-07 achieves BO-1"). One verb per relationship; the verb never names the
 # target type. The frontmatter field that holds a verb's targets is named after
 # the verb. docs/VOCABULARY.md is generated from this section and the types above
 # (`python -m docingest vocab > docs/VOCABULARY.md`).
@@ -410,15 +419,24 @@ verbs:
     docs: [all]
     status: keep
     description: Section belongs to this document
-  mentions:
-    inverse: mentioned_in
+  subsection_of:
+    inverse: has_subsection
+    group: structure
+    from: [document_section]
+    to: [document_section]
+    evidence: A heading sits under a heading one level up
+    docs: [all]
+    status: new
+    description: Section is a sub-section of this section
+  mentions_item:
+    inverse: mentioned_in_section
     group: structure
     from: [document_section]
     to: [any]
     evidence: The item's ID appears in the section text
     docs: [all]
-    status: renamed
-    replaces: [mentions_item]
+    status: keep
+    replaces: [mentions]
     description: Section text names this item
   appears_in:
     inverse: features
@@ -616,16 +634,16 @@ verbs:
     description: Person spoke or posted in this transcript or chat
 
   # ---- goals and scope ----------------------------------------------------
-  supports:
-    inverse: supported_by
+  achieves:
+    inverse: achieved_by
     group: goals_scope
     from: [requirement_types, epic, feature, user_story, scope_item, deliverable]
     to: [business_objective]
     columns: [objective, objectives, goal, goals, supports objective, business objective]
     evidence: Objective or Goal column
     docs: [all]
-    status: renamed
-    replaces: [achieves]
+    status: keep
+    replaces: [supports]
     description: Serves this objective
   measures:
     inverse: measured_by
@@ -714,10 +732,10 @@ verbs:
   uses_system:
     inverse: used_by
     group: requirements
-    from: [requirement_types, work_items]
+    from: [requirement_types, work_items, constraint, dependency, data_requirement]
     to: [system]
     columns: [system, systems, integrations, application, applications]
-    evidence: System column, or a known system's name in the row
+    evidence: System column, or a known system's name in the row or the item's text
     docs: [all]
     status: new
     description: Needs this system

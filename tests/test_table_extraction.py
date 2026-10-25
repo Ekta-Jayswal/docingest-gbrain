@@ -93,19 +93,158 @@ class TableTypesTest(unittest.TestCase):
         self.assertEqual(ac.links.get("verifies"), [report])
         self.assertEqual(len(by_type(res, "deliverable")), 2)  # no duplicate deliverables
 
-    # A column named for two types ('Question or risk') is ambiguous, so its rows are not typed.
-    def test_header_naming_two_types_stays_text(self):
+    # A column named for two types ('Question or risk') is read row by row: a row that asks
+    # something is an open question, any other row is a risk.
+    def test_question_or_risk_header_is_read_row_by_row(self):
         md = "# Doc\n\n## Open items\n\n" + table(
-            ["Question or risk", "Owner"], ["Is the API ready?", "Jane Doe"]
+            ["Question or risk", "Owner"],
+            ["Is the API ready?", "Jane Doe"],
+            ["Pharmacists may cancel refills.", "Raj Patel"],
         )
         res = extract(md)
-        self.assertEqual(by_type(res, "risk"), {})
-        self.assertEqual(by_type(res, "open_question"), {})
+        self.assertEqual(list(by_type(res, "open_question")), ["Is the API ready?"])
+        self.assertEqual(list(by_type(res, "risk")), ["Pharmacists may cancel refills."])
 
     # A generic column (such as 'Data') names no type, so the table stays as text.
     def test_general_columns_name_nothing(self):
         md = "# Doc\n\n## Data\n\n" + table(["Data", "Source"], ["Payments", "Bank"])
         self.assertEqual(extract(md).tables[0].mapped_to, "text only")
+
+
+# Links between a section and its items, and between items, that the document does not print as IDs.
+class SectionAndRangeLinksTest(unittest.TestCase):
+    """Section mentions for items without IDs, numbered objectives and ID ranges."""
+
+    # An objective list has no printed IDs, yet its section links to every objective.
+    def test_section_mentions_items_defined_in_it(self):
+        md = "# Doc\n\n## Project Objectives\n\n1. Cut cycle time.\n2. Go online.\n"
+        res = extract(md)
+        section = next(p for p in res.pages if p.fields.get("heading") == "Project Objectives")
+        objectives = {p.slug for p in res.pages if p.type == VOCAB.gbrain_type("business_objective")}
+        self.assertEqual(len(objectives), 2)
+        self.assertEqual(set(section.links.get("mentions_item", [])), objectives)
+
+    # "1, 2" in an Objective column means the first and second numbered objectives.
+    def test_objective_numbers_link_to_objectives(self):
+        md = (
+            "# Doc\n\n## Project Objectives\n\n1. Cut cycle time.\n2. Go online.\n\n"
+            "## Business Requirements\n\n"
+            + table(["ID", "Requirement", "Objective"], ["BR-01", "Apply online.", "1, 2"])
+        )
+        res = extract(md)
+        (br,) = by_type(res, "business_requirement").values()
+        objectives = [p.slug for p in res.pages if p.type == VOCAB.gbrain_type("business_objective")]
+        self.assertEqual(sorted(br.links.get("achieves", [])), sorted(objectives))
+
+    # A number that has no objective links to nothing.
+    def test_objective_number_out_of_range_is_ignored(self):
+        md = (
+            "# Doc\n\n## Project Objectives\n\n1. Cut cycle time.\n\n"
+            "## Business Requirements\n\n"
+            + table(["ID", "Requirement", "Objective"], ["BR-01", "Apply online.", "3"])
+        )
+        (br,) = by_type(extract(md), "business_requirement").values()
+        self.assertNotIn("achieves", br.links)
+
+    # "US-1 to US-3" names US-2 as well.
+    def test_id_range_is_expanded(self):
+        from docingest.ingestion.extract_with_rules import ids_in
+
+        self.assertEqual(ids_in("US-1 to US-3 and FR-2"), ["US-1", "US-3", "FR-2", "US-2"])
+        self.assertEqual(ids_in("US-1 to 4"), ["US-1", "US-2", "US-3", "US-4"])
+        self.assertEqual(ids_in("2026-10 to 2026-12"), [])  # dates are not IDs
+
+
+# Structure the rules read from headings, plus links that follow from other links.
+class StructureLinksTest(unittest.TestCase):
+    """Sub-sections, headings that type a table, glossary terms, aliases and inherited objectives."""
+
+    # The page of the section with this heading.
+    def section(self, res, heading: str):
+        return next(p for p in res.pages if p.fields.get("heading") == heading)
+
+    # A heading under a heading links to it, and a container heading names its sub-sections' items.
+    def test_container_section_names_items_of_its_subsections(self):
+        md = (
+            "# Doc\n\n# Functional Requirements\n\nGrouped by user.\n\n"
+            "## Applicant\n\n- FR-1 The system shall let applicants apply.\n\n"
+            "## Examiner\n\n- FR-2 The system shall queue reviews.\n"
+        )
+        res = extract(md)
+        parent, child = self.section(res, "Functional Requirements"), self.section(res, "Applicant")
+        self.assertEqual(child.links["subsection_of"], [parent.slug])
+        self.assertEqual(len(parent.links["mentions_item"]), 2)
+
+    # A section that has items of its own does not also take its sub-sections' items.
+    def test_section_with_its_own_items_is_not_a_container(self):
+        md = (
+            "# Doc\n\n# Requirements\n\n- FR-1 The system shall do a.\n\n"
+            "## Extra\n\n- FR-2 The system shall do b.\n"
+        )
+        res = extract(md)
+        self.assertEqual(len(self.section(res, "Requirements").links["mentions_item"]), 1)
+
+    # A table whose first column is generic is typed by a heading that names one type.
+    def test_heading_types_a_table_with_a_generic_first_column(self):
+        md = "# Doc\n\n## Cost-Benefit Analysis\n\n" + table(
+            ["Item", "Type", "Amount"], ["Licence", "Cost", "180,000"], ["Re-keying saved", "Benefit", "95,000"]
+        )
+        res = extract(md)
+        self.assertEqual(sorted(by_type(res, "budget_item")), ["Licence", "Re-keying saved"])
+        md = "# Doc\n\n## Data Requirements\n\n" + table(["Data", "Source"], ["Payment record", "Bank"])
+        self.assertEqual(list(by_type(extract(md), "data_requirement")), ["Payment record"])
+
+    # The same table under a heading that names no type stays text.
+    def test_table_under_untyped_heading_stays_text(self):
+        md = "# Doc\n\n## Overview\n\n" + table(["Item", "Amount"], ["Licence", "180,000"])
+        self.assertEqual(extract(md).tables[0].mapped_to, "text only")
+
+    # An ordered list under "Current Process" gives steps, and a step that names a system uses it.
+    def test_current_process_gives_steps_that_use_systems(self):
+        md = (
+            "# Doc\n\n## Interfaces\n\n"
+            + table(["Connected system", "Direction"], ["PermitTrack", "Both ways"])
+            + "\n## Current Process\n\n1. The applicant brings a form.\n2. Staff type it into PermitTrack.\n"
+        )
+        res = extract(md)
+        steps = by_type(res, "process_step")
+        self.assertEqual(len(steps), 2)
+        system = by_type(res, "system")["PermitTrack"].slug
+        self.assertEqual([p.links.get("uses_system") for p in steps.values()], [None, [system]])
+
+    # An item that uses a glossary term links to it.
+    def test_item_using_a_glossary_term_links_to_it(self):
+        md = (
+            "# Doc\n\n## Glossary\n\n" + table(["Term", "Meaning"], ["Plans examiner", "Checks drawings."])
+            + "\n## Requirements\n\n- FR-1 The plans examiner shall mark up drawings.\n"
+        )
+        res = extract(md)
+        (term,) = by_type(res, "glossary_term").values()
+        (fr,) = by_type(res, "functional_requirement").values()
+        self.assertEqual(fr.links["uses_term"], [term.slug])
+
+    # A system is also found by its acronym, but not when two systems share it.
+    def test_system_acronym_is_an_alias_only_when_unique(self):
+        def uses(systems: list[str]) -> list:
+            md = "# Doc\n\n## Interfaces\n\n" + table(["Connected system", "Direction"], *[[n, "In"] for n in systems])
+            md += "\n## Requirements\n\n- FR-1 The system shall call the KYC service.\n"
+            res = extract(md)
+            return next(iter(by_type(res, "functional_requirement").values())).links.get("uses_system", [])
+
+        self.assertEqual(len(uses(["identity/KYC verification service"])), 1)
+        self.assertEqual(uses(["KYC service A", "KYC service B"]), [])
+
+    # A requirement that implements a requirement serving an objective serves it too.
+    def test_requirement_inherits_the_objective_of_what_it_implements(self):
+        md = (
+            "# Doc\n\n## Project Objectives\n\n1. Go online.\n\n## Business Requirements\n\n"
+            + table(["ID", "Requirement", "Objective"], ["BR-01", "Apply online.", "1"])
+            + "\n## Functional Requirements\n\n- FR-1 The system shall take applications. [BR-01]\n"
+        )
+        res = extract(md)
+        (objective,) = by_type(res, "business_objective").values()
+        (fr,) = by_type(res, "functional_requirement").values()
+        self.assertEqual(fr.links["achieves"], [objective.slug])
 
 
 # Cover tables, change history and signature tables.

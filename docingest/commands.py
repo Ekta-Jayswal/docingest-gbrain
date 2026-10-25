@@ -50,7 +50,7 @@ def _paths(args) -> tuple[Path, Path]:
 # Default embedding model, called through the LiteLLM proxy. EMBEDDING_MODEL in .env.local
 # overrides it (a bare proxy model name gets the litellm: prefix), so a proxy that names the
 # model differently needs no flag on every command.
-DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL") or "text-embedding-3-small"
+DEFAULT_MODEL = os.environ.get("EMBEDDING_MODEL") or "litellm:text-embed-3S-ai"
 if not DEFAULT_MODEL.startswith("litellm:"):
     DEFAULT_MODEL = "litellm:" + DEFAULT_MODEL
 # Width of the default model's vectors. The brain stores vectors at this width, so it must match
@@ -432,10 +432,11 @@ def cmd_embeddings_setup(args) -> int:
 
 
 # The value of one setting in the project's .env.local. A commented-out line does not count.
-def _env_local_value(name: str) -> str | None:
+def _env_local_value(name: str, path: Path | None = None) -> str | None:
     """The value of NAME in .env.local, or None if that line is missing or commented out."""
+    path = path or Path(__file__).resolve().parents[1] / ".env.local"
     try:
-        lines = (Path(__file__).resolve().parents[1] / ".env.local").read_text().splitlines()
+        lines = path.read_text().splitlines()
     except OSError:
         return None
     for line in lines:
@@ -660,6 +661,54 @@ def cmd_plan(args) -> int:
         f"--llm-all sends {a[0]} (~{a[1]:,} tokens, ~${a[2]:.2f}). "
         "Estimates assume ~4 chars/token, no cache discount, $4/$20 per MTok."
     )
+    return 0
+
+
+# The `gap-audit` command: audit what each section of one or more documents links to, and write the
+# audits as one page. Each file is converted in a temporary folder and the rules run in memory, so
+# nothing is saved next to the input and the brain is not touched.
+def cmd_gap_audit(args) -> int:
+    """Audit each document's links section by section; write the page and print the summaries."""
+    import tempfile
+
+    from docingest.reporting import gap_audit
+
+    if args.llm and not extract_with_ai.credentials_available():
+        print("[error] --llm needs LITELLM_BASE_URL and LITELLM_API_KEY (see .env.local)", file=sys.stderr)
+        return 1
+    vocab = Vocabulary()
+    audits = []
+    for name in args.files:
+        source = Path(name).resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                conv, reference = convert(source, Path(tmp))
+            except ConversionError as e:
+                print(f"[error] {source.name}: {e}", file=sys.stderr)
+                return 1
+            kind = classify(conv, vocab, args.kind)
+            key = slugify(document_id(conv.markdown) or source.stem, 50)
+            x = Extractor(vocab)
+            res = x.extract(source, conv, reference, kind, key, "")
+            res.routing = route_sections(res, list(x._globals.values()))
+            res.globals = list(x._globals.values())
+            if args.llm:
+                extract_with_ai.LLMExtractor(vocab, x, args.llm_effort).enrich(res)
+                res.globals = list(x._globals.values())
+        manifest, analysis = gap_audit.build(res, vocab, args.find)
+        audits.append((source, kind, key, manifest, analysis))
+    _, work = _paths(args)
+    if args.out:
+        out = Path(args.out).resolve()
+    elif len(audits) == 1:
+        out = work / "reports" / "gap-audit" / f"{audits[0][2]}.html"
+    else:
+        out = work / "reports" / "gap-audit" / "combined.html"
+    gap_audit.write_page([(m, a) for _, _, _, m, a in audits], out)
+    for source, kind, key, _, analysis in audits:
+        print(f"\n{source.name} ({kind}, key {key})")
+        print("\n".join(gap_audit.summary_lines(analysis)))
+    print(f"\nPage: {out}")
     return 0
 
 
@@ -914,6 +963,27 @@ def main(argv: list[str] | None = None) -> int:
         "-v", "--verbose", action="store_true", help="Also list high-confidence sections"
     )
     p.set_defaults(func=cmd_plan)
+
+    p = sub.add_parser(
+        "gap-audit",
+        help="Audit what each section of one document links to, and write it as a page",
+    )
+    p.add_argument("files", nargs="+", help="One or more documents; several go on one page")
+    p.add_argument("--kind", help="Force the document kind (brd, prd, sow, ...)")
+    p.add_argument("--find", help="Also list every section where this text appears")
+    p.add_argument(
+        "--llm",
+        action="store_true",
+        help="Also run the AI extraction and the cross-section link pass (needs the LiteLLM proxy)",
+    )
+    p.add_argument(
+        "--llm-effort",
+        default="medium",
+        choices=["low", "medium", "high", "xhigh", "max"],
+        help="How hard the AI thinks when --llm is used",
+    )
+    p.add_argument("--out", help="Write the page here (default: work/reports/gap-audit/<key>.html)")
+    p.set_defaults(func=cmd_gap_audit)
 
     p = sub.add_parser("convert", help="Print a file converted to markdown")
     p.add_argument("file")
