@@ -52,7 +52,7 @@ curl -s "$LITELLM_BASE_URL/models" -H "Authorization: Bearer $LITELLM_API_KEY"
 # One real embedding at 1536 dimensions. Should print 1536.
 curl -s "$LITELLM_BASE_URL/embeddings" \
   -H "Authorization: Bearer $LITELLM_API_KEY" -H "Content-Type: application/json" \
-  -d '{"model":"text-embedding-3-small","input":"hello","dimensions":1536}' \
+  -d '{"model":"litellm:text-embed-3S-ai","input":"hello","dimensions":1536}' \
   | python3 -c "import json,sys; print(len(json.load(sys.stdin)['data'][0]['embedding']))"
 ```
 
@@ -88,13 +88,13 @@ In every case, the image has never been built. The first `docker build` on EC2 i
 ## 3. Embeddings: decided settings
 
 - Provider: LiteLLM proxy, gbrain's built-in `litellm` provider
-- Model: `text-embedding-3-small`, 1536 dimensions
-- If the proxy names the model `text-embedding-3-small`, gbrain sends the width. If it uses a custom alias, declare the native width (1536 for small).
+- Model: `litellm:text-embed-3S-ai`, 1536 dimensions
+- If the proxy names the model `litellm:text-embed-3S-ai`, gbrain sends the width. If it uses a custom alias, declare the native width (1536 for small).
 
 One-time setup on the brain:
 
 ```bash
-gbrain embeddings enable --embedding-model litellm:text-embedding-3-small --embedding-dimensions 1536
+gbrain embeddings enable --embedding-model litellm:text-embed-3S-ai --embedding-dimensions 1536
 ```
 
 Each run:

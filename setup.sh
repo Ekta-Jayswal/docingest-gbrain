@@ -24,6 +24,9 @@ echo "Using $($PYTHON --version) at $(command -v "$PYTHON")"
 .venv/bin/pip install --quiet --upgrade pip
 .venv/bin/pip install --quiet --prefer-binary -r requirements.txt
 echo "Python packages installed in ./.venv"
+# shellcheck disable=SC1091
+source .venv/bin/activate
+echo "Activated the virtual environment ($VIRTUAL_ENV)"
 if [ ! -f .env.local ]; then
   cat > .env.local <<'ENV'
 # Local settings for ingest.sh (this file is not committed). Remove the # to enable a line.
@@ -43,3 +46,6 @@ echo
   echo "Fix the FAIL lines above, then run ./ingest.sh doctor again."
   exit 1
 }
+echo
+echo "A script cannot activate the environment in your terminal. To do that, run:"
+echo "  source .venv/bin/activate"

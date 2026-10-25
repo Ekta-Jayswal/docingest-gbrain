@@ -56,20 +56,20 @@ class ProxyCheckTest(FakeProxyTest):
 
     # A model the proxy offers, at the right width, passes the check.
     def test_good_model(self):
-        ok, msg = litellm_proxy.check("litellm:text-embedding-3-small", 1536)
+        ok, msg = litellm_proxy.check("litellm:text-embed-3S-ai", 1536)
         self.assertTrue(ok, msg)
 
     # An unknown model fails, and the message lists the models that are on offer.
     def test_unknown_model_names_the_models_on_offer(self):
         ok, msg = litellm_proxy.check("litellm:nope", 1536)
         self.assertFalse(ok)
-        self.assertIn("text-embedding-3-small", msg)
+        self.assertIn("litellm:text-embed-3S-ai", msg)
 
     # A proxy that cannot be reached fails with a clear 'Cannot reach' message.
     def test_unreachable(self):
         os.environ["LITELLM_BASE_URL"] = "http://127.0.0.1:1/v1"
         try:
-            ok, msg = litellm_proxy.check("litellm:text-embedding-3-small", 1536)
+            ok, msg = litellm_proxy.check("litellm:text-embed-3S-ai", 1536)
         finally:
             os.environ["LITELLM_BASE_URL"] = f"http://127.0.0.1:{self.port}/v1"
         self.assertFalse(ok)

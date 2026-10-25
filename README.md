@@ -129,7 +129,7 @@ export PATH="$BUN_INSTALL/bin:$PATH"
 | `GBRAIN_HOME` | `./brain` (set by `ingest.sh`) | Brain directory; the database lives in `$GBRAIN_HOME/.gbrain` |
 | `DOCINGEST_WORK` | `$GBRAIN_HOME/work` | Working directory for generated pages, manifests, state and reports |
 | `LITELLM_BASE_URL`, `LITELLM_API_KEY` | unset | The LiteLLM proxy address (with `/v1`) and key; needed for `--llm` / `--llm-all` and embeddings |
-| `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` | `text-embedding-3-small`, `1536` | Embedding model name as the proxy lists it, and its vector width. Must match the brain's width |
+| `EMBEDDING_MODEL`, `EMBEDDING_DIMENSIONS` | `litellm:text-embed-3S-ai`, `1536` | Embedding model name as the proxy lists it, and its vector width. Must match the brain's width |
 | `LLM_MODEL` | `gpt-5-mini-ai` | Chat model name the proxy offers, for the AI steps |
 | `GBRAIN_BIN` | `gbrain` on `PATH`, then `~/.bun/bin/gbrain` | Override the gbrain executable |
 
@@ -868,7 +868,7 @@ fixing common errors, is in [COMMANDS.md](COMMANDS.md). Two things to know:
 - The brain is created in `GBRAIN_HOME` (default `./brain`) and its work files in
   `$GBRAIN_HOME/work`. Other gbrain brains on the machine are never touched.
 - The embedding model and width are fixed when a brain is created. `--embed` creates a new brain
-  with `litellm:text-embedding-3-small` at 1536 dimensions; to change either, use a new folder.
+  with `litellm:text-embed-3S-ai` at 1536 dimensions; to change either, use a new folder.
 
 ## 14. Docker
 
