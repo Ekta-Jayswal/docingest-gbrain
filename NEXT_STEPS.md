@@ -1,5 +1,19 @@
 # Next steps
 
+## Learnings for the next step (2026-10-25)
+
+- Grey lines in the gap audit graph are section mentions: the section names the item, by the item's ID in its text or by defining it there. They are not LLM expectations.
+- Rules closed most of the link gaps: numbered objectives, ID ranges, sub-sections, "Question or risk" tables, heading-typed tables, glossary terms, system aliases, inherited objectives.
+- The LLM link pass is untested against a real model. Its accepted links are logged with quotes. Turn a pattern into a rule only if it recurs across documents and holds on the held-out set.
+- Still open without the LLM: NFR, KPI and risk items with no objective or system column; scope items and non-goal bullets; SOW task sub-headings; one stakeholder row.
+- Next: run `./ingest.sh gap-audit ... --llm` on the loan BRD, group the accepted links by pattern, then decide which patterns become rules.
+
+## Link gaps (2026-10-25, branch `fix/section-entity-links`)
+
+Audit of three unseen BRD/PRD files (permit portal BRD, pharmacy refills PRD, mobile returns PRD), section by section. Closed by rules: sections now link to every item defined in them (items from tables and lists have no printed ID), numbered objectives ("1, 2"), ID ranges ("US-1 to US-4"), `Question or risk` tables read row by row, sub-sections (`subsection_of`) with container sections naming their sub-sections' items, tables typed by the heading above them (new `data_requirement` type; cost-benefit; "Current Process" gives steps), `uses_term` from glossary terms, objectives inherited through `implements`, system aliases (acronym, name without a closing "service/system"). Typed links in the permit BRD went from 15 to 49.
+
+Still open: scope items, business rules, most non-functional requirements, budget items, assumptions, and goals that no story names have no typed link, because the document never connects them with an ID or a column. The section pass of `--llm` cannot see across sections, so `extract_with_ai.link_pass` (new, one request per document, every link needs a quote from each end) is meant for these. **Not yet run against a real model** (no proxy credentials on this machine); the fake-model tests pass. First check on EC2: `./ingest.sh ingest <file> --llm`, then compare `link_items`, `links_accepted` and `links_rejected` in the manifest's `llm_report`.
+
 ## Status (2026-10-21)
 
 **Built on branch `feat/ec2-standalone`** (run on a plain EC2 host, no Docker, no AI assistant): `setup.sh`, a repo-relative `ingest.sh`, `doctor`, the embedding phase (`ingest --embed`, `embed`, `embeddings-setup`, five embedding checks), a fake LiteLLM proxy with tests (`run_tests.sh`) and [COMMANDS.md](COMMANDS.md). Tested locally against the fake proxy only. **The first real run is on EC2**: paste the output of `./ingest.sh doctor` and the two reports if anything fails.
@@ -285,3 +299,42 @@ Why it matters: gap analysis needs "for project X, what exists and what is missi
 Rough guess: 85–95% right from the start on documents like the samples (which were written to fit the vocabulary, so this overstates real life); 60–75% fixed automatically on messy or new document types; prose (email, chat, notes) adapts least and depends on the `--llm` pass. A reviewer would see a handful of decisions per new document type, not per document, and approvals apply to every later document.
 
 **To get real numbers:** collect 15–20 real documents of the kinds the team will ingest; after Fix 2, run them and read the fallback report per document; hand-label a sample to measure how many typed entities and links are right. This also shows whether thresholds such as "3 rows" are sensible.
+
+## 12. Follow-ups from the 2026-10-23 session (brain path, rejected AI items, counts)
+
+Small items to do first (to be picked up tomorrow):
+
+1. **Line length:** `_link_keys` in `docingest/reporting/dashboard_page.py` is 107 characters; the limit is 99.
+2. **Tests:** add unit tests for `_brain_home` and `_env_local_value` (`docingest/commands.py`), for the evidence quote in rejection reasons (`extract_with_ai.py`), and for unique links from manifests for older runs (`dashboard_page.py`).
+3. **Full test suite:** run it on the branch after rebasing onto `main`, before merging PR #5 (only 15 related tests were run after the rebase).
+4. **`COMMANDS.md` line ~130:** `set -a; . ./.env.local; set +a` exports every setting into the shell, including `GBRAIN_HOME`. Reword it so it does not export `GBRAIN_HOME`.
+5. **`COMMANDS.md` line ~17 and `setup.sh` line ~30:** the example `GBRAIN_HOME=/home/ubuntu/docingest-brain` caused confusion. Say that leaving it unset uses `./brain`.
+6. **Q&A document** (`docs/local-only/technical/docingest-session-qa-2026-10-23.html`, not in git): update section 10 statuses. Items 4, 6 and 8 are done or partly done.
+
+Deferred, and agreed to be done later:
+
+7. **`ingest.sh` checks before each run:** warn when the brain's `config.json` `database_path` points outside `GBRAIN_HOME/.gbrain`, and print the brain path and its source on every run.
+8. **Dashboard:** show the accepted and rejected AI items per document, with each quote and reason.
+9. **Manifest:** keep rejected items with their quote in a list the reviewer can read, not only as text in the reasons.
+10. **Verify check:** fail when a document has pages or chunks beyond what its manifest lists.
+11. **AI pages and links:** mark AI-sourced pages and links, so they can be told apart from rule output. Decide whether accepted AI items should go to the review queue.
+12. **Graph view:** a view built from an export of nodes and edges (not started).
+13. **Counts:** reconcile the dashboard totals with `gbrain stats` (show brain totals and shared-page totals beside the per-document sums).
+
+Environment checks, not code:
+
+14. Remove any `export GBRAIN_HOME=…` line from the shell profile (`~/.zshrc`, `~/.bashrc`, `~/.profile`) on every machine. A shell value overrides `.env.local`.
+15. Keep the repo's `.env` free of docingest settings. gbrain reads it from the folder it runs in and ignores `GBRAIN_HOME` there. Move those settings to `.env.local`.
+16. EC2: the installed gbrain is not the tested version (0.60.281.0). Doctor shows a WARN. This stays as it is for now.
+17. Check the brain with `./ingest.sh doctor` and `grep database_path` on each machine after pulling.
+
+## 13. Parked: canonical names for shared entities (2026-10-25)
+
+Parked for now. Revisit when the multi-document results need it.
+
+- **Problem.** Shared pages are named by slugifying the name (`entity_slug`), so "Ravi Menon" and "R. Menon" become two pages. Only organizations have a matching rule (`_same_organization`, whole-word containment).
+- **Measure first.** Count brain pages that would collapse to one normalized name. If there are almost none, skip the rest.
+- **Scope if done.** Normalize only case, punctuation and legal suffixes (Ltd, Inc, LLC). Apply it to people and organizations only. No first-name-only matching, no fuzzy matching, no automatic merges.
+- **Cost.** About 30 to 50 lines, plus tests for names that must not merge. Changing slugs means re-ingesting affected documents; otherwise old pages become orphans and links to them break.
+- **Not planned.** Alias lists in `vocabulary.yaml`, unless the measurement shows variants that normalization misses.
+- **Why not now.** Risk of over-merging people with the same name, and slug changes in an existing brain.

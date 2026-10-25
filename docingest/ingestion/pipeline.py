@@ -80,6 +80,43 @@ def page_dict(p: Page) -> dict:
     }
 
 
+# The manifest of one document: what was extracted from it, saved as JSON. The dashboard,
+# verification and the gap audit read it.
+def document_manifest(res: DocumentResult, section_type: str) -> dict:
+    """The manifest of one document, as a plain dict."""
+    section_slugs = [p.slug for p in res.pages if p.type == section_type]
+    return {
+        "key": res.key,
+        "source_path": res.source_path,
+        "sha256": res.sha256,
+        "kind": res.kind,
+        "title": res.title,
+        "converter": res.converter,
+        "warnings": res.warnings,
+        "section_type": section_type,
+        "sections": [
+            {**asdict(s), "slug": slug}
+            for s, slug in zip(res.sections, section_slugs, strict=True)
+        ],
+        "tables": [
+            {
+                "section": t.section,
+                "header": t.header,
+                "rows": t.rows,
+                "mapped_to": t.mapped_to,
+                "id_col": t.id_col,
+            }
+            for t in res.tables
+        ],
+        "entity_ids": res.entity_ids,
+        "undefined_refs": res.undefined_refs,
+        "llm_report": res.llm_report,
+        "routing": res.routing,
+        "gaps": [{**{k: v for k, v in g.items() if k != "rows"}, "rows": len(g["rows"])} for g in res.gaps],
+        "pages": [page_dict(p) for p in res.pages],
+    }
+
+
 # Runs ingestion and verification for one brain and work folder. The shared objects (vocabulary,
 # brain connection, state, review board) are created once here and used for every file.
 class Pipeline:
@@ -194,10 +231,18 @@ class Pipeline:
             log(
                 f"  AI extraction ({self.llm_mode}): {report['sections']} section(s) sent, "
                 f"{report['skipped_high_confidence']} skipped as high-confidence; "
-                f"{report['accepted']} accepted, {report['rejected']} rejected, "
+                f"{report['accepted']} accepted, {report['rejected']} rejected; "
+                f"{report.get('links_accepted', 0)} cross-section link(s) inferred, "
+                f"{report.get('links_rejected', 0)} rejected, "
                 f"~${report['estimated_cost_usd']} "
                 f"({report['input_tokens']} in / {report['output_tokens']} out tokens)"
             )
+            # Rejected items are not written anywhere in the brain. Warn, so the loss is visible.
+            if report["rejected"]:
+                _log.warning(
+                    "AI items rejected", rejected=report["rejected"], accepted=report["accepted"],
+                    manifest=f"manifests/{key}.json",
+                )
 
         # Attachments are moved into the work folder under the document's key, so they stay with
         # it.
@@ -229,37 +274,7 @@ class Pipeline:
         (self.work / "markdown" / f"{res.key}.md").write_text(res.markdown)
         (self.work / "reference" / f"{res.key}.txt").write_text(res.reference_text)
         section_type = self.vocab.gbrain_type("document_section")
-        section_slugs = [p.slug for p in res.pages if p.type == section_type]
-        manifest = {
-            "key": res.key,
-            "source_path": res.source_path,
-            "sha256": res.sha256,
-            "kind": res.kind,
-            "title": res.title,
-            "converter": res.converter,
-            "warnings": res.warnings,
-            "section_type": section_type,
-            "sections": [
-                {**asdict(s), "slug": slug}
-                for s, slug in zip(res.sections, section_slugs, strict=True)
-            ],
-            "tables": [
-                {
-                    "section": t.section,
-                    "header": t.header,
-                    "rows": t.rows,
-                    "mapped_to": t.mapped_to,
-                    "id_col": t.id_col,
-                }
-                for t in res.tables
-            ],
-            "entity_ids": res.entity_ids,
-            "undefined_refs": res.undefined_refs,
-            "llm_report": res.llm_report,
-            "routing": res.routing,
-            "gaps": [{**{k: v for k, v in g.items() if k != "rows"}, "rows": len(g["rows"])} for g in res.gaps],
-            "pages": [page_dict(p) for p in res.pages],
-        }
+        manifest = document_manifest(res, section_type)
         (self.work / "manifests" / f"{res.key}.json").write_text(
             json.dumps(manifest, indent=1, ensure_ascii=False)
         )

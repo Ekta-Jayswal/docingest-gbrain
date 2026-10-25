@@ -104,6 +104,16 @@ links:
   - [RK-02, threatens, BR-002]
   - [RK-02, threatens, FR-003]
 
+  # Derived by the pipeline and checked by hand: shared terms and systems named in the item's text, and objectives inherited through 'implements'.
+  - [AS-02, uses_term, gl-crew]
+  - [BR-001, uses_term, gl-window]
+  - [FR-001, supports, OBJ-1]
+  - [FR-002, supports, OBJ-1]
+  - [FR-003, supports, OBJ-2]
+  - [FR-004, supports, OBJ-3]
+  - [FR-005, supports, OBJ-3]
+  - [FR-006, supports, OBJ-1]
+
 review_candidates:
   - [RK-01, threatens, OBJ-3]
   - [AS-01, depends_on, sys-assettrack]

@@ -431,6 +431,37 @@ def cmd_embeddings_setup(args) -> int:
     return 0
 
 
+# The value of one setting in the project's .env.local. A commented-out line does not count.
+def _env_local_value(name: str, path: Path | None = None) -> str | None:
+    """The value of NAME in .env.local, or None if that line is missing or commented out."""
+    path = path or Path(__file__).resolve().parents[1] / ".env.local"
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return None
+    for line in lines:
+        if line.startswith(f"{name}="):
+            return line.split("=", 1)[1].strip() or None
+    return None
+
+
+# Which brain folder is used, and where that value came from: --brain, .env.local, the default
+# ./brain that ingest.sh sets, or a value already in the shell (for example exported in ~/.zshrc).
+def _brain_home(args) -> tuple[str | None, str]:
+    """(brain folder or None, where it came from)."""
+    if args.brain:
+        return args.brain, "--brain option"
+    local = _env_local_value("GBRAIN_HOME")
+    if local:
+        return local, ".env.local"
+    home = os.environ.get("GBRAIN_HOME")
+    if not home:
+        return None, "not set"
+    if home == str(Path(__file__).resolve().parents[1] / "brain"):
+        return home, "default ./brain"
+    return home, "shell environment, not .env.local"
+
+
 # The `doctor` command: check Python, packages, gbrain, bun, LibreOffice, the brain folder, the
 # proxy and the API key. Each line is PASS, WARN, FAIL or INFO. Returns 1 if a required check
 # fails.
@@ -475,7 +506,7 @@ def cmd_doctor(args) -> int:
         "python packages",
         f"missing: {', '.join(missing)}. Run ./setup.sh" if missing else "all importable",
     )
-    home = args.brain or os.environ.get("GBRAIN_HOME")
+    home, home_source = _brain_home(args)
     gb = GBrain(Path(home).resolve() if home else Path.cwd() / "brain")
     gbin = Path(gb.binary)
     # The gbrain program counts as found when it exists as a file or is on PATH.
@@ -503,11 +534,25 @@ def cmd_doctor(args) -> int:
     # The brain checks need a home folder. Without one, say so and suggest ./ingest.sh.
     if home:
         h = Path(home).resolve()
+        # A value that only the shell sets is easy to forget, so it is a warning: say where it is
+        # set, and put it in .env.local.
         add(
-            "PASS",
+            "WARN" if home_source.startswith("shell") else "PASS",
             "brain folder",
-            f"{h} ({'exists' if gb.exists() else 'will be created on first use'})",
+            f"{h} from {home_source} "
+            f"({'exists' if gb.exists() else 'will be created on first use'})",
         )
+        # The brain's config stores the database path as an absolute path. If it points somewhere
+        # else (for example a folder the repo was copied from), this brain is not the one at h.
+        db = gb.config().get("database_path")
+        if db and Path(db).resolve() != (h / ".gbrain" / "brain.pglite").resolve():
+            add(
+                "WARN",
+                "database path",
+                f"config.json points to {db}, not inside {h}. Check GBRAIN_HOME in .env.local",
+            )
+        elif db:
+            add("PASS", "database path", db)
         if gb.exists():
             cfg = gb.config()
             add(
@@ -616,6 +661,54 @@ def cmd_plan(args) -> int:
         f"--llm-all sends {a[0]} (~{a[1]:,} tokens, ~${a[2]:.2f}). "
         "Estimates assume ~4 chars/token, no cache discount, $4/$20 per MTok."
     )
+    return 0
+
+
+# The `gap-audit` command: audit what each section of one or more documents links to, and write the
+# audits as one page. Each file is converted in a temporary folder and the rules run in memory, so
+# nothing is saved next to the input and the brain is not touched.
+def cmd_gap_audit(args) -> int:
+    """Audit each document's links section by section; write the page and print the summaries."""
+    import tempfile
+
+    from docingest.reporting import gap_audit
+
+    if args.llm and not extract_with_ai.credentials_available():
+        print("[error] --llm needs LITELLM_BASE_URL and LITELLM_API_KEY (see .env.local)", file=sys.stderr)
+        return 1
+    vocab = Vocabulary()
+    audits = []
+    for name in args.files:
+        source = Path(name).resolve()
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                conv, reference = convert(source, Path(tmp))
+            except ConversionError as e:
+                print(f"[error] {source.name}: {e}", file=sys.stderr)
+                return 1
+            kind = classify(conv, vocab, args.kind)
+            key = slugify(document_id(conv.markdown) or source.stem, 50)
+            x = Extractor(vocab)
+            res = x.extract(source, conv, reference, kind, key, "")
+            res.routing = route_sections(res, list(x._globals.values()))
+            res.globals = list(x._globals.values())
+            if args.llm:
+                extract_with_ai.LLMExtractor(vocab, x, args.llm_effort).enrich(res)
+                res.globals = list(x._globals.values())
+        manifest, analysis = gap_audit.build(res, vocab, args.find)
+        audits.append((source, kind, key, manifest, analysis))
+    _, work = _paths(args)
+    if args.out:
+        out = Path(args.out).resolve()
+    elif len(audits) == 1:
+        out = work / "reports" / "gap-audit" / f"{audits[0][2]}.html"
+    else:
+        out = work / "reports" / "gap-audit" / "combined.html"
+    gap_audit.write_page([(m, a) for _, _, _, m, a in audits], out)
+    for source, kind, key, _, analysis in audits:
+        print(f"\n{source.name} ({kind}, key {key})")
+        print("\n".join(gap_audit.summary_lines(analysis)))
+    print(f"\nPage: {out}")
     return 0
 
 
@@ -870,6 +963,27 @@ def main(argv: list[str] | None = None) -> int:
         "-v", "--verbose", action="store_true", help="Also list high-confidence sections"
     )
     p.set_defaults(func=cmd_plan)
+
+    p = sub.add_parser(
+        "gap-audit",
+        help="Audit what each section of one document links to, and write it as a page",
+    )
+    p.add_argument("files", nargs="+", help="One or more documents; several go on one page")
+    p.add_argument("--kind", help="Force the document kind (brd, prd, sow, ...)")
+    p.add_argument("--find", help="Also list every section where this text appears")
+    p.add_argument(
+        "--llm",
+        action="store_true",
+        help="Also run the AI extraction and the cross-section link pass (needs the LiteLLM proxy)",
+    )
+    p.add_argument(
+        "--llm-effort",
+        default="medium",
+        choices=["low", "medium", "high", "xhigh", "max"],
+        help="How hard the AI thinks when --llm is used",
+    )
+    p.add_argument("--out", help="Write the page here (default: work/reports/gap-audit/<key>.html)")
+    p.set_defaults(func=cmd_gap_audit)
 
     p = sub.add_parser("convert", help="Print a file converted to markdown")
     p.add_argument("file")

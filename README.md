@@ -112,10 +112,12 @@ curl -fsSL https://bun.sh/install | bash
 git clone --branch v0.60.281.0 https://github.com/garrytan/gbrain.git ../gbrain
 (cd ../gbrain && bun install && bun link)        # puts `gbrain` in ~/.bun/bin
 
-# Shell setup (already in ~/.zshrc on this machine)
+# Shell setup
 export BUN_INSTALL="$HOME/.bun"
 export PATH="$BUN_INSTALL/bin:$PATH"
-export GBRAIN_HOME="$HOME/docingest-brain"
+# Do not export GBRAIN_HOME here. An exported value overrides the brain for every command, and
+# ingest.sh keeps it. Set GBRAIN_HOME in .env.local instead (or leave it unset for ./brain).
+# `env | grep GBRAIN` should print nothing.
 ```
 
 `./ingest.sh` creates the brain on first run if it doesn't exist (PGLite, embeddings off), so `gbrain init` is optional.
@@ -528,11 +530,16 @@ rule confidence (4):
 
 ## 11. Exploring the brain with gbrain
 
-Set up the shell first. This is already in `~/.zshrc` on this machine:
+Set up the shell first. Only the PATH is needed. Do not export `GBRAIN_HOME` in the shell, because it overrides the brain that `ingest.sh` uses:
 
 ```bash
 export PATH="$HOME/.bun/bin:$PATH"
-export GBRAIN_HOME="$HOME/docingest-brain"
+```
+
+To run gbrain by hand on the docingest brain, prefix each command with the brain folder:
+
+```bash
+GBRAIN_HOME="$PWD/brain" gbrain stats
 ```
 
 `gbrain <command> --help` shows every option.

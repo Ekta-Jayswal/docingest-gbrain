@@ -167,7 +167,7 @@ class SafeguardTest(unittest.TestCase):
     # A new type cannot take a name already in use, or a name that is not valid.
     def test_new_type_names_may_not_clash(self):
         self.assertIn("already a type or verb", self.refused(self.pid, "rename:risk"))
-        self.assertIn("already a type or verb", self.refused(self.pid, "rename:supports"))
+        self.assertIn("already a type or verb", self.refused(self.pid, "rename:achieves"))
         self.assertIn("not a valid name", self.refused(self.pid, "rename:Data Migration"))
 
     # A decision the parser does not know ('maybe') is refused.

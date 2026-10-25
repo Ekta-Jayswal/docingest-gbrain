@@ -44,6 +44,13 @@ ID_PATTERN = r"[A-Z][A-Z0-9]{0,7}-\d{1,5}(?:\.\d{1,3})*[A-Z]?"  # BR-01, FR-1.1,
 ID_CELL_RE = re.compile(rf"^{ID_PATTERN}$")
 # An ID found anywhere inside a longer piece of text.
 ID_REF_RE = re.compile(rf"\b{ID_PATTERN}\b")
+# A range of IDs: "US-1 to US-4", "US-1 – US-4", "US-1 to 4". Both ends share a prefix.
+ID_RANGE_RE = re.compile(
+    r"\b(?P<prefix>[A-Z][A-Z0-9]{0,7})-(?P<a>\d{1,5})\s*(?:to|through|–|—|-)\s*"
+    r"(?:(?P=prefix)-)?(?P<b>\d{1,5})\b"
+)
+# The widest range that is expanded. A longer one is more likely a date or a typo.
+MAX_RANGE = 50
 # A list item that starts with its own ID: "FR-1.1 The ...", "**FR-1** ...", "NFR-03: ...".
 LEADING_ID_RE = re.compile(rf"^(?P<id>{ID_PATTERN})\b[\s:.\-–—]*(?P<rest>.*)$")
 # ID references written as a trace: "[BR-01]", "(US-1)", "(BR-02, BR-03)".
@@ -152,6 +159,17 @@ GENERIC_LINK_COLUMNS = {
 GENERIC_TITLE_COLUMNS = {
     "name", "title", "description", "requirement", "item", "category", "details", "detail",
 }  # fmt: skip
+# A last word that only says what kind of thing a system is.
+GENERIC_SYSTEM_WORDS = {"service", "system", "platform", "application", "app", "portal", "tool"}
+# A heading that is the document's title, or the start of it ("Business Requirements Document" in
+# "Business Requirements Document: Digital Loan Origination System").
+def _is_title_heading(heading: str, doc_title: str) -> bool:
+    h, t = normalize_ws(heading).lower(), normalize_ws(doc_title).lower()
+    return bool(h) and t.startswith(h) and (len(h) >= len(t) or t[len(h)] in ":-–— ")
+
+
+# First-column headers that name no type but still say "one row per item".
+GENERIC_SUBJECTS = {"data", "entry", "entries", "information", "topic"}
 # The word 'sponsor' in a sign-off row marks that person as the sponsor.
 SPONSOR_RE = re.compile(r"\bsponsor\b", re.I)
 # Looks like a name: one to four capitalised words.
@@ -230,6 +248,16 @@ def looks_like_person(text: str) -> bool:
 
 # Reads one converted document and builds its pages. Its work runs in one fixed order, set out in
 # extract().
+
+def ids_in(text: str) -> list[str]:
+    """Every ID in the text, in order, with ranges expanded ("US-1 to US-3" -> US-1, US-2, US-3)."""
+    found = ID_REF_RE.findall(text)
+    for m in ID_RANGE_RE.finditer(text):
+        a, b = int(m.group("a")), int(m.group("b"))
+        if a < b <= a + MAX_RANGE:
+            found += [f"{m.group('prefix')}-{n}" for n in range(a, b + 1)]
+    return list(dict.fromkeys(found))
+
 class Extractor:
     """Rule-based extraction of pages and links from one converted document."""
 
@@ -345,6 +373,7 @@ class Extractor:
         self._register_list_items(lists, key, registry)
         self._link_story_actors(sections, md, registry)
         self._entity_pages(tables, sections, md, key, kind, doc_slug, registry, title)
+        self._derive_links(registry)
         self._party_roles(doc, registry)
         self._approvals(tables, doc, registry)
         self._signature_blocks(sections, md, doc)
@@ -836,6 +865,7 @@ class Extractor:
             if self._approval_columns(t):
                 continue
             people = self._people_column(t)
+            mixed = False
             # A people table: each row with a real name becomes a person.
             if people:
                 vocab_type, title_col = "person", people
@@ -853,6 +883,20 @@ class Extractor:
                     title_col = subject
                 # The type of the new entities, taken from the column that holds their names.
                 vocab_type = title_col and self._type_of_header(title_col)
+                # "Question or risk": each row is one or the other, so read each row.
+                mixed = bool(title_col) and not vocab_type and self._is_question_or_risk(title_col)
+                if mixed:
+                    vocab_type = "open_question"
+            # A table whose first column is only generic ("Item", "Data") is typed by the heading
+            # above it, when the heading names exactly one statement type.
+            if not vocab_type and not people:
+                heading_type = self.v.single_type_for_heading(self._res.sections[t.section].heading)
+                if (
+                    heading_type
+                    and self.v.types[heading_type].primitive in LIST_PRIMITIVES
+                    and header_key(subject) in GENERIC_TITLE_COLUMNS | GENERIC_SUBJECTS
+                ):
+                    vocab_type, title_col = heading_type, subject
             if not vocab_type:
                 continue
             for row in t.rows:
@@ -860,14 +904,17 @@ class Extractor:
                 # Skip empty rows, and person rows whose name does not look like a name.
                 if not name or (vocab_type == "person" and not looks_like_person(name)):
                     continue
-                item_id = self._new_id(vocab_type, registry)
+                row_type = vocab_type
+                if not people and mixed:
+                    row_type = "open_question" if name.rstrip().endswith("?") else "risk"
+                item_id = self._new_id(row_type, registry)
                 slug = (
-                    self.entity_slug(vocab_type, key, name)
-                    if self.v.types[vocab_type].scope == "global"
-                    else self.entity_slug(vocab_type, key, item_id)
+                    self.entity_slug(row_type, key, name)
+                    if self.v.types[row_type].scope == "global"
+                    else self.entity_slug(row_type, key, item_id)
                 )
                 registry[item_id] = {
-                    "type": vocab_type,
+                    "type": row_type,
                     "slug": slug,
                     "row": row,
                     "table": t,
@@ -875,11 +922,17 @@ class Extractor:
                     "title_col": title_col,
                     "name": name,
                     "generated": True,
-                    "doc_verb": self._party_verb(row, vocab_type),
+                    "doc_verb": self._party_verb(row, row_type),
                 }
             types = sorted({r["type"] for r in registry.values() if r["table"] is t})
             if types:
                 t.mapped_to = "entities: " + ", ".join(types)
+
+    # A header such as "Question or risk" names an open question and a risk, so each row is read on
+    # its own: a row that asks something is a question, any other row is a risk.
+    def _is_question_or_risk(self, header: str) -> bool:
+        words = {self._type_of_word(w) for w in header_key(header).split()} - {None}
+        return words == {"open_question", "risk"}
 
     # Only an organization's role (Client, Vendor) links the document to it: has_client or
     # has_vendor.
@@ -1157,20 +1210,59 @@ class Extractor:
         """Slugs of this document's systems whose name appears in the text.
 
         A one-word name must match its case ("Notify", not "notify"); a longer name
-        matches in any case ("credit bureau"). No partial or fuzzy matching.
+        matches in any case ("credit bureau"). A system is also known by the acronym in its
+        name ("identity/KYC verification service" -> "KYC") and by its name without a generic
+        last word ("e-signature service" -> "e-signature"), when that is unique. No fuzzy
+        matching.
         """
         # System names from this document first, then the shared system names.
         names = {r["name"]: r["slug"] for r in self._registry.values() if r["type"] == "system"}
         names |= {g.name: g.slug for g in self._globals.values() if g.vocab_type == "system"}
+        return self._names_in(text, {**self._aliases(names), **names})
+
+    # Short names for a system, kept only when they point at one system: its acronyms, and its name
+    # without a closing generic word.
+    def _aliases(self, names: dict[str, str]) -> dict[str, str]:
+        found: dict[str, set[str]] = {}
+        for name, slug in names.items():
+            for acronym in re.findall(r"\b[A-Z]{2,}\b", name):
+                found.setdefault(acronym, set()).add(slug)
+            words = name.split()
+            if len(words) > 1 and words[-1].lower() in GENERIC_SYSTEM_WORDS:
+                found.setdefault(" ".join(words[:-1]), set()).add(slug)
+        return {a: next(iter(slugs)) for a, slugs in found.items() if len(slugs) == 1 and a not in names}
+
+    # The slugs whose names appear in the text. A multi-word name ignores case; a single word must
+    # match exactly, so 'Notify' does not match 'notify'. Names match as whole words.
+    def _names_in(self, text: str, names: dict[str, str]) -> list[str]:
         out = []
         for name, slug in names.items():
-            # A multi-word name ignores case. A single word must match exactly, so 'Notify' does
-            # not match 'notify'.
             flags = re.I if len(name.split()) > 1 else 0
-            # Match the name as a whole word, not inside another word.
-            if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text, flags):
+            if re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])", text, flags) and slug not in out:
                 out.append(slug)
         return out
+
+    # Links that follow from the ones already made, and from the words the items use:
+    # an item that uses a defined glossary term links to it (uses_term), and a requirement that
+    # implements a requirement serving an objective serves that objective too.
+    def _derive_links(self, registry: dict) -> None:
+        pages = {p.slug: p for p in self._res.pages}
+        terms = {r["name"]: r["slug"] for r in registry.values() if r["type"] == "glossary_term"}
+        if terms:
+            for r in registry.values():
+                owner = pages.get(r["slug"])
+                if r["type"] == "glossary_term" or owner is None:
+                    continue
+                if not self.v.fits("uses_term", r["type"], "glossary_term"):
+                    continue
+                for slug in self._names_in(" ".join(r["row"].values()), terms):
+                    owner.add_link("uses_term", slug)
+        types = {r["slug"]: r["type"] for r in registry.values()}
+        for page in self._res.pages:
+            for parent in page.links.get("implements", []):
+                for objective in getattr(pages.get(parent), "links", {}).get("achieves", []):
+                    if self.v.fits("achieves", types.get(page.slug, ""), types.get(objective, "")):
+                        page.add_link("achieves", objective)
 
     # The entities a table cell refers to: the IDs it contains. When names is True and there are no
     # IDs, the whole cell may match one entity name.
@@ -1178,7 +1270,7 @@ class Extractor:
         """Slugs of the entities a cell refers to: by ID, or (names=True) by its whole text
         being an entity's exact name ("Final conformance report")."""
         # The IDs in the cell that are defined in this document.
-        refs = [registry[r]["slug"] for r in ID_REF_RE.findall(cell) if r in registry]
+        refs = [registry[r]["slug"] for r in ids_in(cell) if r in registry]
         if refs or not names:
             return refs
         wanted = normalize_ws(cell).lower()
@@ -1213,6 +1305,11 @@ class Extractor:
         refs = self._refs(cell, registry)
         if refs:
             return refs
+        # "1, 2" in an Objective column: the numbered objectives of this document, in order.
+        if "business_objective" in self.v.verbs[verb].to:
+            numbered = self._numbered_objectives(cell, registry)
+            if numbered:
+                return numbered
         target = self.v.verbs[verb].target
         if target == "person":
             return [p.slug for p in self._people_in(cell)]
@@ -1223,6 +1320,17 @@ class Extractor:
         if target == "system" and cell.strip():
             return [self._system(n.strip()).slug for n in re.split(r"[,;]", cell) if n.strip()]
         return []
+
+    # The objectives a cell of plain numbers ("1, 2") points to, counting the document's objectives
+    # in order. Returns nothing unless the whole cell is numbers and each one has an objective.
+    def _numbered_objectives(self, cell: str, registry: dict) -> list[str]:
+        if not re.fullmatch(r"\s*\d{1,3}(?:\s*(?:,|;|&|and)\s*\d{1,3})*\s*", cell):
+            return []
+        objectives = [r["slug"] for r in registry.values() if r["type"] == "business_objective"]
+        numbers = [int(n) for n in re.findall(r"\d+", cell)]
+        if not all(1 <= n <= len(objectives) for n in numbers):
+            return []
+        return [objectives[n - 1] for n in numbers]
 
     # The system a name refers to. A system already defined in this document is reused.
     def _system(self, name: str) -> GlobalContribution:
@@ -1648,11 +1756,43 @@ class Extractor:
             # A section belongs to its document.
             page.add_link("section_of", doc_slug)
             # Every ID the section mentions links to its entity as 'mentions'.
-            for ref in ID_REF_RE.findall(text):
+            for ref in ids_in(text):
                 if ref in registry:
-                    page.add_link("mentions", registry[ref]["slug"])
+                    page.add_link("mentions_item", registry[ref]["slug"])
+            # An item defined in this section has no printed ID when it came from a table or list
+            # without IDs (objectives, scope, constraints). The section still names it.
+            for r in registry.values():
+                owner = r["table"].section if r.get("table") else r.get("section")
+                if owner == s.index:
+                    page.add_link("mentions_item", r["slug"])
             pages.append(page)
+        self._link_section_tree(sections, pages, doc_title)
         return pages
+
+    # A heading under a heading one level up is its sub-section. A parent that holds no items of its
+    # own ("Functional Requirements" above "Applicant", "Examiner") is only a container, so it
+    # also names the items of its sub-sections. The document's title section is left alone.
+    def _link_section_tree(self, sections, pages: list[Page], doc_title: str) -> None:
+        parent: dict[int, int] = {}
+        open_parents: list[int] = []  # indexes of the sections above the current one
+        for s in sections:
+            while open_parents and sections[open_parents[-1]].level >= s.level:
+                open_parents.pop()
+            if open_parents:
+                parent[s.index] = open_parents[-1]
+                pages[s.index].add_link("subsection_of", pages[open_parents[-1]].slug)
+            open_parents.append(s.index)
+        # Which parents held items of their own, before anything is rolled up.
+        had_own = {i: bool(pages[i].links.get("mentions_item")) for i in range(len(pages))}
+        # Latest sections first, so a container's own containers are filled before it is used.
+        for child in sorted(parent, reverse=True):
+            up = parent[child]
+            # The document's own title heading ("Business Requirements Document" above "Document Control")
+            # groups everything, so it is not a container of any one item group.
+            if up == 0 or had_own[up] or _is_title_heading(sections[up].heading, doc_title):
+                continue
+            for target in pages[child].links.get("mentions_item", []):
+                pages[up].add_link("mentions_item", target)
 
     # Write the document page's text: the title, the source, the attributes, the sections, and a
     # count of what was extracted.

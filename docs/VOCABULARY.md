@@ -2,7 +2,7 @@
 
 Generated from `docingest/vocabulary/vocabulary.yaml` by `python -m docingest vocab`. Do not edit by hand: change the YAML and regenerate.
 
-48 link verbs (32 kept, 6 renamed, 2 merged, 8 new) over 37 page types. A link reads as a sentence: source, verb, target.
+49 link verbs (34 kept, 4 renamed, 2 merged, 9 new) over 38 page types. A link reads as a sentence: source, verb, target.
 
 ## Link verbs
 
@@ -10,7 +10,8 @@ Generated from `docingest/vocabulary/vocabulary.yaml` by `python -m docingest vo
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | structure | `defined_in` | `defines` | `any` | `source_document` | Item is defined in this document | Always, for every item extracted from a document | all | keep |
 | structure | `section_of` | `has_section` | `document_section` | `source_document` | Section belongs to this document | Always | all | keep |
-| structure | `mentions` | `mentioned_in` | `document_section` | `any` | Section text names this item | The item's ID appears in the section text | all | renamed (was `mentions_item`) |
+| structure | `subsection_of` | `has_subsection` | `document_section` | `document_section` | Section is a sub-section of this section | A heading sits under a heading one level up | all | new |
+| structure | `mentions_item` | `mentioned_in_section` | `document_section` | `any` | Section text names this item | The item's ID appears in the section text | all | keep (was `mentions`) |
 | structure | `appears_in` | `features` | `shared_entities` | `source_document` | A shared person, organization, group, system or term appears in this document | Always, for shared entities | all | keep |
 | structure | `attachment_of` | `has_attachment` | `source_document` | `source_document` | Document was attached to this email | The file was attached to an email | email | keep |
 | structure | `supersedes` | `superseded_by` | `source_document` | `source_document` | A newer version of the same document | Same document ID with a higher version | all | new |
@@ -31,7 +32,7 @@ Generated from `docingest/vocabulary/vocabulary.yaml` by `python -m docingest vo
 | parties | `sent_to` | `received` | `source_document` | `person` | Email recipient | Email To header | email | keep |
 | parties | `copied_to` | `copied_on` | `source_document` | `person` | Email CC recipient | Email Cc header | email | keep |
 | parties | `has_participant` | `participated_in` | `source_document` | `person` | Person spoke or posted in this transcript or chat | Speaker names in a transcript or chat | transcript, chat | keep |
-| goals_scope | `supports` | `supported_by` | `requirement_types`, `epic`, `feature`, `user_story`, `scope_item`, `deliverable` | `business_objective` | Serves this objective | Objective or Goal column | all | renamed (was `achieves`) |
+| goals_scope | `achieves` | `achieved_by` | `requirement_types`, `epic`, `feature`, `user_story`, `scope_item`, `deliverable` | `business_objective` | Serves this objective | Objective or Goal column | all | keep (was `supports`) |
 | goals_scope | `measures` | `measured_by` | `kpi` | `business_objective`, `requirement_types`, `deliverable` | Metric measures progress on this item | Objective or KPI for column in a KPI table | all | keep |
 | goals_scope | `within_scope` | `scopes` | `requirement_types`, `feature`, `deliverable` | `scope_item` | Falls under this scope item | Scope column | all | keep |
 | requirements | `implements` | `implemented_by` | `requirement_types` | `requirement_types` | Detailed requirement implements a broader one (FR to BR) | Business requirement, Parent or Traces to column | brd, prd | keep |
@@ -40,7 +41,7 @@ Generated from `docingest/vocabulary/vocabulary.yaml` by `python -m docingest vo
 | requirements | `verifies` | `verified_by` | `acceptance_criterion` | `requirement_types`, `user_story`, `deliverable` | Test that proves the item is done | Verifies or Requirement column in an acceptance table | all | keep |
 | requirements | `constrains` | `constrained_by` | `nonfunctional_requirement`, `constraint`, `business_rule`, `service_level` | `any` | Limits how this item may be met | Applies to, Affects or Limits column | all | merged (was `limits`, `applies_to`) |
 | requirements | `performed_by` | `performs` | `work_items` | `persona`, `stakeholder` | Carried out by this user type | Actor, Persona or Role column | all | keep |
-| requirements | `uses_system` | `used_by` | `requirement_types`, `work_items` | `system` | Needs this system | System column, or a known system's name in the row | all | new |
+| requirements | `uses_system` | `used_by` | `requirement_types`, `work_items`, `constraint`, `dependency`, `data_requirement` | `system` | Needs this system | System column, or a known system's name in the row or the item's text | all | new |
 | requirements | `integrates_with` | `integrated_by` | `system` | `system` | System-to-system interface | Integrates with column in a systems table | brd, prd | keep |
 | requirements | `uses_term` | `term_used_by` | `any` | `glossary_term` | Uses this defined term | Term column | all | keep |
 | requirements | `depends_on` | `dependency_of` | `any` | `any` | Cannot finish without this item | Depends on, Prerequisite or Relies on column | all | merged (was `relies_on`) |
@@ -103,6 +104,7 @@ Generated from `docingest/vocabulary/vocabulary.yaml` by `python -m docingest vo
 | delivery | `budget_item` | `docs/budget/` | document | `BUD`, `COST` | A budget line or cost item |
 | parties | `stakeholder` | `docs/stakeholders/` | global | `SG` | A group or role with an interest in the work (e.g. Underwriters), not a named person |
 | requirements | `business_rule` | `docs/business-rules/` | document | `BRL`, `RULE` | A policy or rule the business must follow |
+| requirements | `data_requirement` | `docs/data-requirements/` | document | `DR`, `DATA` | A kind of data the solution must hold, with where it comes from and how long it is kept |
 | solution | `process_step` | `docs/process-steps/` | document | `STEP` | One step of a current or future business process |
 | delivery | `change_request` | `docs/change-requests/` | document | `CR`, `CHG` | A requested change to agreed scope, price or schedule |
 | fallback | `record` | `docs/records/` | document |  | A row from an ID-keyed table whose ID prefix is not in this vocabulary |

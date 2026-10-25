@@ -197,7 +197,7 @@ class Vocabulary:
 
     # Verbs never chosen by type alone: structural ones, and those that fit any pair.
     UNTYPED_VERBS = frozenset(
-        {"references", "depends_on", "defined_in", "section_of", "mentions", "appears_in"}
+        {"references", "depends_on", "defined_in", "section_of", "mentions_item", "appears_in"}
     )
 
     # True when the verb may run from a source type to a destination type. A verb with no

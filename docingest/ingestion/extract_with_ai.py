@@ -33,9 +33,13 @@ PRICE_IN, PRICE_OUT = prices()  # USD per million tokens, from LLM_PRICE_IN / LL
 # Page types that the rules create to hold the document's structure. The AI never extracts these.
 STRUCTURAL_TYPES = {"source_document", "document_section", "record"}
 # Links the rules write for structure. The AI is not offered these verbs.
-STRUCTURAL_VERBS = {"defined_in", "section_of", "mentions", "appears_in", "attachment_of"}
+STRUCTURAL_VERBS = {"defined_in", "section_of", "mentions_item", "appears_in", "attachment_of"}
 # In `all` mode, sections shorter than this are not sent, since they hold nothing worth extracting.
 MIN_SECTION_CHARS = 80
+# The link pass sends every item of the document in one request. More items than this are not sent.
+MAX_LINK_ITEMS = 250
+# Each item's text is cut to this many characters in the link pass.
+LINK_TEXT_CHARS = 300
 
 
 # True when the proxy address and key are set, so the --llm step can run. The command checks this
@@ -151,6 +155,59 @@ def _schema(vocab: Vocabulary) -> dict:
             },
         },
         "required": ["entities", "relationships"],
+        "additionalProperties": False,
+    }
+
+
+# What the link pass asks for. Unlike the section pass, it sees the whole document at once, so it can
+# connect items that sit in different sections and never name each other.
+LINK_INTRO = (
+    "You are given every item extracted from one business document (BRD, PRD, SOW, ...): its key, "
+    "type, the section it came from and its text. Propose relationships BETWEEN these items that "
+    "the document makes clear but does not spell out with an ID. Typical cases: which business "
+    "objective a requirement, user story, scope item or deliverable serves; which requirement a "
+    "scope item, business rule or constraint applies to; which requirement a risk threatens; "
+    "which scope item a requirement falls under; which system or term an item relies on."
+)
+LINK_RULES = "\n".join(
+    [
+        "- Use only the keys listed. Never invent an item.",
+        "- Use a verb only between the types it allows (see the verb list). A verb that names a "
+        "target type must point at that type.",
+        "- `from_quote` must be copied exactly from the text of the `from` item, and `to_quote` "
+        "exactly from the text of the `to` item. Pick the words that show the connection.",
+        "- `reason` is one short sentence saying why the two items are connected.",
+        "- Do not repeat a relationship that is already listed under Existing links.",
+        "- Leave out a relationship you are not confident about. An empty list is a good answer.",
+    ]
+)
+
+
+# JSON schema for the link pass answer. The allowed verbs are listed as an enum.
+def _link_schema(vocab: Vocabulary) -> dict:
+    verbs = [v for v in vocab.verbs if v not in STRUCTURAL_VERBS]
+    text = {"type": "string"}
+    return {
+        "type": "object",
+        "properties": {
+            "links": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "from": text,
+                        "verb": {"type": "string", "enum": verbs},
+                        "to": text,
+                        "from_quote": text,
+                        "to_quote": text,
+                        "reason": text,
+                    },
+                    "required": ["from", "verb", "to", "from_quote", "to_quote", "reason"],
+                    "additionalProperties": False,
+                },
+            }
+        },
+        "required": ["links"],
         "additionalProperties": False,
     }
 
@@ -320,6 +377,8 @@ class LLMExtractor:
                 report,
             )
 
+        # Second pass: connect items across sections.
+        self.link_pass(res, report)
         # Estimated cost in USD, from the token counts and the model's prices.
         report["estimated_cost_usd"] = round(
             report["input_tokens"] * PRICE_IN / 1e6 + report["output_tokens"] * PRICE_OUT / 1e6, 4
@@ -330,6 +389,112 @@ class LLMExtractor:
                   est_usd=report["estimated_cost_usd"])
         res.llm_report = report
         return report
+
+    # The items the link pass may connect: key -> (page, vocabulary type, text). The key is the
+    # item's ID when it has one, otherwise X1, X2, ...
+    def _link_items(self, res: DocumentResult) -> dict[str, tuple[Page, str, str]]:
+        gtypes = {self.v.gbrain_type(t): t for t in self.v.types}
+        items: dict[str, tuple[Page, str, str]] = {}
+        for p in res.pages:
+            vt = gtypes.get(p.type, p.type)
+            if vt in STRUCTURAL_TYPES or vt not in self.v.types:
+                continue
+            key = p.fields.get("item_id") or f"X{len(items) + 1}"
+            # The item's own words: its page body without the heading and the context line.
+            lines = [ln for ln in p.body.splitlines() if ln and not ln.startswith(("#", "From "))]
+            text = normalize_ws(" ".join([p.title.split(": ", 1)[-1], *lines]))
+            items[key] = (p, vt, text)
+        return items
+
+    # The verbs a model may use, with the types each one joins, for the link prompt.
+    def _link_verbs(self) -> str:
+        lines = []
+        for v in self.v.verbs.values():
+            if v.name in STRUCTURAL_VERBS:
+                continue
+            ends = f"{', '.join(v.from_) or 'any'} -> {', '.join(v.to) or 'any'}"
+            lines.append(f"- {v.name} ({ends}): {v.description}")
+        return "\n".join(lines)
+
+    # Second AI pass: connect items across sections. Every proposed link must name real items, fit
+    # the verb's types, quote each end, and not repeat a link that exists. Accepted links are
+    # written on the source page and listed in the report as inferred.
+    def link_pass(self, res: DocumentResult, report: dict) -> None:
+        items = self._link_items(res)
+        report.update({"link_items": len(items), "links_accepted": 0, "links_rejected": 0,
+                       "inferred_links": []})
+        if len(items) < 2:
+            return
+        if len(items) > MAX_LINK_ITEMS:
+            report["errors"].append(f"link pass: {len(items)} items is over the limit of {MAX_LINK_ITEMS}")
+            return
+        slug_key = {p.slug: k for k, (p, _, _) in items.items()}
+        listing = "\n".join(
+            f'- {k} [{vt}] (section: {p.fields.get("section", "?")}) "{text[:LINK_TEXT_CHARS]}"'
+            for k, (p, vt, text) in items.items()
+        )
+        existing = "\n".join(
+            f"- {k} {verb} {slug_key[t]}"
+            for k, (p, _, _) in items.items()
+            for verb, targets in p.links.items()
+            if verb not in STRUCTURAL_VERBS
+            for t in targets
+            if t in slug_key
+        )
+        system = (
+            f"{LINK_INTRO}\n\nRelationship verbs (from -> to):\n{self._link_verbs()}\n\n"
+            f"Rules:\n{LINK_RULES}"
+        )
+        user = (
+            f"Document: {res.title} (kind: {res.kind})\n\nItems:\n{listing}\n\n"
+            f"Existing links:\n{existing or '(none)'}"
+        )
+        _log.info("sending items to the model for linking", items=len(items), chars=len(user))
+        try:
+            text, usage = self.client.complete(system, user, _link_schema(self.v), "links")
+            data = json.loads(text)
+        except (LLMError, json.JSONDecodeError) as e:
+            report["errors"].append(f"link pass: {e}")
+            return
+        for k in ("input", "output", "cache_read"):
+            report[f"{k}_tokens"] += usage.get(k, 0)
+        self._apply_links(items, data, report)
+
+    # Check each proposed link and write the accepted ones. A rejection records the reason.
+    def _apply_links(self, items: dict, data: dict, report: dict) -> None:
+        linked = {
+            (p.slug, t) for p, _, _ in items.values() for ts in p.links.values() for t in ts
+        }
+        linked |= {(b, a) for a, b in linked}
+
+        def reject(r: dict, reason: str) -> None:
+            report["links_rejected"] += 1
+            report["rejections"].append(
+                f"link pass: {r.get('from')} --{r.get('verb')}--> {r.get('to')}: {reason}"
+            )
+
+        for r in data.get("links", []):
+            src, dst, verb = items.get(r["from"]), items.get(r["to"]), r["verb"]
+            if not src or not dst or src is dst:
+                reject(r, "unknown or identical endpoint")
+            elif verb not in self.v.verbs or verb in STRUCTURAL_VERBS:
+                reject(r, "not a link verb")
+            elif not self.v.fits(verb, src[1], dst[1]):
+                reject(r, f"{verb} does not join {src[1]} to {dst[1]}")
+            elif normalize_ws(r["from_quote"]).lower() not in src[2].lower() or not r["from_quote"].strip():
+                reject(r, f"quote not found in {r['from']}: \"{r['from_quote'].strip()[:100]}\"")
+            elif normalize_ws(r["to_quote"]).lower() not in dst[2].lower() or not r["to_quote"].strip():
+                reject(r, f"quote not found in {r['to']}: \"{r['to_quote'].strip()[:100]}\"")
+            elif (src[0].slug, dst[0].slug) in linked:
+                reject(r, "already linked")
+            else:
+                src[0].add_link(verb, dst[0].slug)
+                linked |= {(src[0].slug, dst[0].slug), (dst[0].slug, src[0].slug)}
+                src[0].body += f"\n- Inferred by the AI: {verb} {r['to']}. {r['reason'].strip()}\n"
+                report["links_accepted"] += 1
+                report["inferred_links"].append(
+                    {"from": r["from"], "verb": verb, "to": r["to"], "reason": r["reason"].strip()}
+                )
 
     # Check each item the AI returned and add the accepted ones to the document. Every rejection
     # is recorded with its reason.
@@ -354,7 +519,10 @@ class LLMExtractor:
         names = {(vt, normalize_ws(n).lower()): slug for slug, vt, n in known.values()}
         for e in data.get("entities", []):
             if not evidenced(e["evidence"]):
-                reject(f"entity '{e['name']}' ({e['type']}): evidence not found verbatim")
+                reject(
+                    f"entity '{e['name']}' ({e['type']}): evidence not found verbatim: "
+                    f"\"{e['evidence'].strip()[:120]}\""
+                )
                 continue
             vt, name = e["type"], e["name"].strip()
             existing = names.get((vt, normalize_ws(name).lower()))
@@ -415,7 +583,7 @@ class LLMExtractor:
             report["accepted"] += 1
             # Each accepted item is also linked from the section it came from.
             if section_page is not None:
-                section_page.add_link("mentions", local[e["key"]][0])
+                section_page.add_link("mentions_item", local[e["key"]][0])
 
         # Find the item a key refers to: a new entity from this answer, or an item already known.
         def resolve(key: str) -> tuple[str, str] | None:
@@ -430,7 +598,10 @@ class LLMExtractor:
         for r in data.get("relationships", []):
             src, dst, verb = resolve(r["from"]), resolve(r["to"]), r["verb"]
             if not evidenced(r["evidence"]):
-                reject(f"{r['from']} --{verb}--> {r['to']}: evidence not found verbatim")
+                reject(
+                    f"{r['from']} --{verb}--> {r['to']}: evidence not found verbatim: "
+                    f"\"{r['evidence'].strip()[:120]}\""
+                )
                 continue
             if not src or not dst:
                 reject(f"{r['from']} --{verb}--> {r['to']}: unknown endpoint")

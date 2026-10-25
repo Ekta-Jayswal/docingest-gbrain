@@ -23,7 +23,7 @@ Stages and their measures:
 
 Precision = right / produced; recall = right / expected; F1 = their harmonic mean;
 accuracy = right / judged. The overall score is the mean of the stage scores in
-``OVERALL``. Structural links (defined_in, section_of, mentions, appears_in) are not
+``OVERALL``. Structural links (defined_in, section_of, mentions_item, appears_in) are not
 scored; they are counted.
 """
 
@@ -51,7 +51,7 @@ _log = get_logger(__name__)
 # The answer key folder (answer_keys/), two levels above this file.
 DEFAULT_ANSWERS = Path(__file__).resolve().parents[2] / "answer_keys"
 # Links the rules write for document structure. They are counted in the report but not scored.
-STRUCTURAL = {"defined_in", "section_of", "mentions", "appears_in", "attachment_of"}
+STRUCTURAL = {"defined_in", "section_of", "mentions_item", "appears_in", "attachment_of"}
 # Page types that hold structure rather than facts, so they are left out of the entity score.
 NOT_ENTITIES = {"source_document", "document_section"}
 # Fields the pipeline writes for its own bookkeeping. They are not facts from the document, so they
@@ -358,7 +358,8 @@ def _score_links(
         for verb, targets in p["links"].items():
             if vocab.canonical_verb(verb) in STRUCTURAL:
                 structural[vocab.canonical_verb(verb)] += len(targets)
-    expected = {tuple(link) for link in gold_links}
+    # Answer keys may use an earlier verb name, so the expected verbs are mapped the same way.
+    expected = {(s, vocab.canonical_verb(v), t) for s, v, t in gold_links}
     right = produced & expected
     res = prf(len(right), len(produced), len(expected))
     # Index the produced links by their ends, so a link with the wrong verb can be spotted.

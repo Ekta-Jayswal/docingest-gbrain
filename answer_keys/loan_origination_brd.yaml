@@ -205,6 +205,14 @@ links:
   - [document, sponsored_by, p-marchetti]
 
 # Likely links the text does not state outright. Not scored; they belong in the review queue.
+
+  # Derived by the pipeline and checked by hand: shared terms and systems named in the item's text, and objectives inherited through 'implements'.
+  - [as-1, uses_term, gl-kyc]
+  - [dep-1, uses_system, sys-core-banking]
+  - [sc-in-4, uses_term, gl-kyc]
+  - [sc-out-3, uses_term, gl-dlos]
+  - [step-2, uses_term, gl-kyc]
+
 review_candidates:
   - [kpi-cycle-time, measures, BO-1]
   - [kpi-rekeying, measures, BO-2]
