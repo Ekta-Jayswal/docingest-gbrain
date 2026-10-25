@@ -157,6 +157,9 @@ class Pipeline:
     # doc-pack.yaml, and installs it in gbrain.
     def prepare(self) -> None:
         """Initialize the brain if needed and install the generated schema pack."""
+        # Say which brain and which schema pack this run uses, before anything is written.
+        log(f"Brain folder: {self.gb.home}")
+        log(f"Schema pack: {self.vocab.pack['name']} v{self.vocab.pack['version']}")
         if self.gb.ensure_initialized(self.embedding):
             what = f"embeddings {self.embedding[0]}" if self.embedding else "embeddings off"
             log(f"Initialized a new brain at {self.gb.home} (PGLite, {what})")
