@@ -20,6 +20,9 @@ from docingest.utils.logger import get_logger
 
 _log = get_logger(__name__)
 
+# Verb names the pipeline used before the rename. Their links are removed from the brain.
+RETIRED_VERBS = ("achieves", "mentions_item")
+
 
 # Raised when a gbrain command or MCP call fails, so callers catch one error type.
 class GBrainError(Exception):
@@ -237,6 +240,20 @@ class GBrain:
         return self.run_json(
             "extract", "links", "--source", "db", "--include-frontmatter", "--json"
         )
+
+    # Remove outgoing links that use a verb name the pipeline has since renamed. Links are only
+    # added, so a brain built before the rename keeps the old names. Returns how many were removed.
+    def drop_retired_links(self, reader: Reader, slugs: list[str]) -> int:
+        """Unlink each page's outgoing edges that use a retired verb name."""
+        dropped = 0
+        for slug in slugs:
+            for link in reader.links(slug):
+                if link.get("from_slug") == slug and link.get("link_type") in RETIRED_VERBS:
+                    self.run(
+                        "unlink", slug, link["to_slug"], "--link-type", link["link_type"], check=False
+                    )
+                    dropped += 1
+        return dropped
 
     # Fill in missing page types from the active schema pack.
     def schema_sync(self) -> None:
