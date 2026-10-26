@@ -48,7 +48,7 @@ def check(model: str, dimensions: int) -> tuple[bool, str]:
     try:
         # Ask the proxy which models it offers. The model name may be given with a prefix such as
         # litellm:, so only the part after the colon is compared.
-        models = [m.get("id") for m in _call(f"{base}/models", key).get("data", [])]
+        models = [m.get("id", "").split(":", 1)[-1] for m in _call(f"{base}/models", key).get("data", [])]
     except urllib.error.HTTPError as e:
         hint = " Try the URL without (or with) a trailing /v1." if e.code == 404 else ""
         return False, f"{base}/models answered HTTP {e.code}.{hint}"
