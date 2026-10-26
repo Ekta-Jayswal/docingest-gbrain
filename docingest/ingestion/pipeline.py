@@ -29,7 +29,7 @@ from docingest.ingestion.convert_to_markdown import (
 from docingest.ingestion.extract_with_rules import DOC_DIR, Extractor, document_id
 from docingest.ingestion import review_ai
 from docingest.ingestion.review_proposals import ReviewBoard, ReviewError, learned_file
-from docingest.utils.gbrain_client import GBrain, GBrainError
+from docingest.utils.gbrain_client import GBrain, GBrainError, Reader
 from docingest.utils.logger import get_logger, set_document
 from docingest.utils.markdown_parsing import slugify
 from docingest.utils.data_types import DocumentResult, Page
@@ -538,6 +538,16 @@ class Pipeline:
             f"{links.get('skipped_missing_target', 0)} body-text candidate(s) skipped "
             "(no such page)"
         )
+        # Remove links an older run wrote with verb names that have since been renamed.
+        slugs = [
+            p["slug"]
+            for f in sorted((self.work / "manifests").glob("*.json"))
+            for p in json.loads(f.read_text())["pages"]
+        ]
+        with Reader(self.gb) as reader:
+            dropped = self.gb.drop_retired_links(reader, slugs)
+        if dropped:
+            log(f"Removed {dropped} link(s) that use renamed verb names")
         # Give each page its type from the schema pack.
         self.gb.schema_sync()
         self.state.save()
